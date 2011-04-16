@@ -762,7 +762,7 @@ int daemon_loop(void)
                         break;
                 case '?':
                         /** ?: get a small number of results. */
-                        write_results(stripws(line + 1), 5);
+                        write_results(stripws(line + 1), 8);
                         break;
                 case '+':
                         /** +: get a larger number of results. */
