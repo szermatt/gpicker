@@ -773,10 +773,9 @@ int daemon_loop(void)
                         break;
                 }
 
-                /* Two 0 bytes mark the end of a query. */
-                buffer[0] = 0;
-                buffer[1] = 0;
-                if (write(1, buffer, 2) <= 0) {
+                /* 3 (ETX) marks the end of a query. */
+                buffer[0] = 3;
+                if (write(1, buffer, 1) <= 0) {
                         perror("write");
                         exit(1);
                 }
