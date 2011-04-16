@@ -59,6 +59,7 @@
 (defvar *gpicker-project-type* "guess")
 (defvar *gpicker-errors-log* (expand-file-name "~/gpicker-errors.log"))
 (defvar *gpicker-buffers-list* (expand-file-name "~/gpicker-buffers-list"))
+(defvar *gpicker-gui* t)
 
 (defun gpicker-delete-file (path)
   (condition-case e
@@ -101,21 +102,155 @@
     (when (and at-point
                (> (string-bytes at-point) 0))
       (setq gpicker-args (list* "--init-filter" at-point gpicker-args)))
-    (with-temp-file *gpicker-buffers-list*
-      (let ((standard-output (current-buffer)))
-        (dolist (b (buffer-list))
-          (let ((name (buffer-name b)))
-            (unless (or (eq (current-buffer) b)
-                        (string= (substring name 0 1) " ")
-                        (buffer-file-name b))
-              (princ (buffer-name b))
-              (princ "\0"))))))
-    (unwind-protect (let ((rv (apply #'gpicker-grab-stdout
-                                     *gpicker-path*
-                                     gpicker-args)))
-                      (and rv
-                           (split-string rv "\0" t)))
-      (discard-input))))
+    (if *gpicker-gui*
+	(gpicker-pick-gui gpicker-args)
+      (gpicker-pick-nogui gpicker-args))))
+
+(defun gpicker-pick-gui (gpicker-args)
+  (with-temp-file *gpicker-buffers-list*
+    (let ((standard-output (current-buffer)))
+      (dolist (b (buffer-list))
+	(let ((name (buffer-name b)))
+	  (unless (or (eq (current-buffer) b)
+		      (string= (substring name 0 1) " ")
+		      (buffer-file-name b))
+	    (princ (buffer-name b))
+	    (princ "\0"))))))
+  (unwind-protect (let ((rv (apply #'gpicker-grab-stdout
+				   *gpicker-path*
+				   gpicker-args)))
+		    (and rv
+			 (split-string rv "\0" t)))
+    (discard-input)))
+
+(defvar gpicker-nogui-map
+    (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map minibuffer-local-map)
+    (define-key map "\C-s" 'gpicker-next-match)
+    (define-key map "\C-r" 'gpicker-prev-match)
+    (define-key map "\C-m" 'gpicker-exit-minibuffer)
+    map)
+  "Minibuffer keymap for the nogui version of `gpicker-pick'.")
+
+(defun gpicker-exit-minibuffer ()
+  (throw 'gpicker-return))
+
+;; straight from iswitch
+(defun gpicker-chop (list elem)
+  (let ((ret nil)
+	(next nil)
+	(sofar nil))
+    (while (not ret)
+      (setq next (car list))
+      (if (equal next elem)
+	  (setq ret (append list (nreverse sofar)))
+	;; else
+	(progn
+	  (setq list (cdr list))
+	  (setq sofar (cons next sofar)))))
+    ret))
+
+(defun gpicker-next-match ()
+  (interactive)
+  (gpicker-update-matches (cadr gpicker-matches)))
+
+(defun gpicker-prev-match ()
+  (interactive)
+  (gpicker-update-matches (car (last gpicker-matches))))
+
+(defun gpicker-update-matches (elem)
+  (setq gpicker-matches (gpicker-chop gpicker-matches elem)))
+
+(defun gpicker-pick-nogui (gpicker-args)
+  (let* ((process (apply #'start-process
+			 "*gpicker*" nil *gpicker-path* "--nogui" gpicker-args))
+	 (gpicker-tq (tq-create process))
+	 (gpicker-matches nil)
+	 (gpicker-last-search nil)
+	 (gpicker-minibuf-depth (1+ (minibuffer-depth)))
+	 (minibuffer-local-completion-map gpicker-nogui-map))
+    (unwind-protect
+	(progn
+	  (catch 'gpicker-return
+	    (completing-read "gpick " '(("dummy" . 1))))
+	  (list (let ((selection (car gpicker-matches)))
+		  (and selection (expand-file-name selection *gpicker-project-dir*)))))
+	(when (eq 'run (process-status process))
+	  (delete-process process)))))
+
+(defun gpicker-nogui-complete (string)
+  (let ((dest (cons nil nil)))
+    (tq-enqueue gpicker-tq (concat "?" string "\n") "\3" dest
+		#'gpicker-pick-nogui--collect-result)
+    (while (null (car dest))
+      (accept-process-output))
+    (cdr dest)))
+
+(defun gpicker-pick-nogui--collect-result (dest answer)
+  (setcar dest t)
+  (setcdr dest (split-string answer "[\0\3]" t)))
+
+(defvar gpicker-minibuf-depth
+  "Value we expect to be returned by `minibuffer-depth' in the minibuffer.")
+
+(defun gpicker-entryfn-p ()
+  (eq gpicker-minibuf-depth (minibuffer-depth)))
+
+(add-hook 'minibuffer-setup-hook 'gpicker-minibuffer-setup)
+
+(defun gpicker-minibuffer-setup ()
+  (when (gpicker-entryfn-p)
+    (add-hook 'pre-command-hook 'gpicker-pre-command nil t)
+    (add-hook 'post-command-hook 'gpicker-post-command nil t)))
+
+(defun gpicker-pre-command ()
+  (gpicker-tidy))
+
+(defun gpicker-post-command ()
+  (gpicker-exhibit))
+
+(defun gpicker-tidy ()
+  (if (and (boundp 'gpicker-eoinput)
+	   gpicker-eoinput)
+      (if (> gpicker-eoinput (point-max))
+	  ;; Oops, got rug pulled out from under us - reinit:
+	  (setq gpicker-eoinput (point-max))
+	(let ((buffer-undo-list buffer-undo-list )) ; prevent entry
+	  (delete-region gpicker-eoinput (point-max)))))
+  ;; Reestablish the local variable 'cause minibuffer-setup is weird:
+  (make-local-variable 'gpicker-eoinput))
+
+(defun gpicker-exhibit ()
+  (let ((contents (buffer-substring (minibuffer-prompt-end) (point-max)))
+	(buffer-undo-list t))
+    (save-excursion
+      (goto-char (point-max))
+                                        ; Register the end of input, so we
+                                        ; know where the extra stuff
+                                        ; (match-status info) begins:
+      (if (not (boundp 'gpicker-eoinput))
+	  ;; In case it got wiped out by major mode business:
+	  (make-local-variable 'gpicker-eoinput))
+      (setq gpicker-eoinput (point)))
+    (unless (string= gpicker-last-search contents)
+      (setq gpicker-matches (gpicker-nogui-complete contents)))
+    (setq gpicker-last-search contents)
+    (gpicker-display-completion gpicker-matches)))
+
+(defun gpicker-display-completion (completion)
+  (save-excursion 
+    (goto-char gpicker-eoinput)
+    (if (null completion)
+	(insert " [no match]")
+      (progn
+	(insert "{")
+	(let ((start (point)))
+	  (insert (car completion))
+	  (put-text-property start (point) 'face 'iswitchb-current-match))
+	(dolist (filename (cdr completion))
+	  (insert " ")
+	  (insert filename))
+	(insert "}")))))
 
 (defun gpicker-set-project-type (type)
   "Sets type of current gpicker project"
