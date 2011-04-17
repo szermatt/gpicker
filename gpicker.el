@@ -163,21 +163,19 @@
   (setq gpicker-matches (gpicker-chop gpicker-matches elem)))
 
 (defun gpicker-pick-nogui (gpicker-args)
-  (let* ((process (apply #'start-process
-			 "*gpicker*" nil *gpicker-path* "--nogui" gpicker-args))
-	 (gpicker-tq (tq-create process))
-	 (gpicker-matches nil)
-	 (gpicker-last-search nil)
-	 (gpicker-minibuf-depth (1+ (minibuffer-depth)))
-	 (minibuffer-local-completion-map gpicker-nogui-map))
+  (let ((process (apply #'start-process
+			 "*gpicker*" nil *gpicker-path* "--nogui" gpicker-args)))
     (unwind-protect
-	(progn
-	  (catch 'gpicker-return
-	    (completing-read "gpick " '(("dummy" . 1))))
+	(let ((gpicker-tq (tq-create process))
+	      (gpicker-matches nil)
+	      (gpicker-last-search nil)
+	      (gpicker-minibuf-depth (1+ (minibuffer-depth)))
+	      (minibuffer-local-completion-map gpicker-nogui-map))
+	  (completing-read "gpick " '(("dummy" . 1)))
 	  (list (let ((selection (car gpicker-matches)))
 		  (and selection (expand-file-name selection *gpicker-project-dir*)))))
-	(when (eq 'run (process-status process))
-	  (delete-process process)))))
+      (when (eq 'run (process-status process))
+	(delete-process process)))))
 
 (defun gpicker-nogui-complete (string)
   (let ((dest (cons nil nil)))
