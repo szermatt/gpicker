@@ -128,12 +128,13 @@
     (set-keymap-parent map minibuffer-local-map)
     (define-key map "\C-s" 'gpicker-next-match)
     (define-key map "\C-r" 'gpicker-prev-match)
-    (define-key map "\C-m" 'gpicker-exit-minibuffer)
+    (define-key map "\C-m" 'exit-minibuffer)
     map)
   "Minibuffer keymap for the nogui version of `gpicker-pick'.")
 
 (defun gpicker-exit-minibuffer ()
-  (throw 'gpicker-return))
+  (interactive)
+  (exit-minibuffer))
 
 ;; straight from iswitch
 (defun gpicker-chop (list elem)
