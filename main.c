@@ -597,7 +597,7 @@ void parse_options(int argc, char **argv)
         GOptionContext *context;
         context = g_option_context_new("PROJECT-DIR-PATH - quickly pick a file from the project");
         g_option_context_add_main_entries(context, entries, 0);
-        g_option_context_add_group(context, gtk_get_option_group(TRUE));
+        g_option_context_add_group(context, gtk_get_option_group(FALSE));
 
         if (!g_option_context_parse(context, &argc, &argv, &error)) {
                 fprintf(stderr, "option parsing failed: %s\n", error->message);
@@ -806,6 +806,7 @@ int main(int argc, char **argv)
         if (nogui) {
                 return daemon_loop();
         }
+        gdk_display_open_default_libgtk_only();
 
         tstart = start_timing();
 
