@@ -740,6 +740,38 @@ char *stripws(char *line)
 }
 
 static
+char *read_daemon_command(char *buffer, int buflen, int *ignored) {
+        char *line;
+        char *more;
+        int flags;
+        *ignored = 0;
+        flags = fcntl(0, F_GETFL, 0); 
+        fcntl(0, F_SETFL, flags & ~O_NONBLOCK);
+        line = fgets(buffer, buflen, stdin);
+        if (line == NULL)
+                return NULL;
+        fcntl(0, F_SETFL, flags | O_NONBLOCK);
+        for (;; (*ignored)++) {
+                more = fgets(buffer, buflen, stdin);
+                if (more == NULL) {
+                        return line;
+                }
+                line = more;
+        }
+        abort(); /* should never be reached */
+}
+
+static
+void write_etx() {
+        /* 3 (ETX) marks the end of a query. */
+        char c = 3;
+        if (write(1, &c, 1) <= 0) {
+                perror("write");
+                exit(1);
+        }
+}
+
+static
 int daemon_loop(void)
 {
         int runloop;
@@ -750,7 +782,11 @@ int daemon_loop(void)
         runloop = 1;
         while (runloop) {
                 char *line;
-                line = fgets(buffer, sizeof(buffer) - 1, stdin);
+                int ignored = 0;
+                line = read_daemon_command(buffer, sizeof(buffer) - 1, &ignored);
+                for (;ignored > 0; ignored--) {
+                        write_etx();
+                }
                 if (line == NULL) {
                         perror("read stdin");
                         return 1;
@@ -769,19 +805,20 @@ int daemon_loop(void)
                         write_results(stripws(line + 1), 25);
                         break;
                 default:
-                        fprintf(stderr, "Unknown query: '%c'\n", *line);
-                        break;
+                  {
+                    static const char *error = "Unknown query\n";
+                    if (write(1, error, strlen(error)) <= 0) {
+                      perror("write");
+                      exit(1);
+                    }
+                  }
+                  break;
                 }
-
-                /* 3 (ETX) marks the end of a query. */
-                buffer[0] = 3;
-                if (write(1, buffer, 1) <= 0) {
-                        perror("write");
-                        exit(1);
-                }
+                write_etx();
         }
         return 0;
 }
+
 
 extern
 int simple_main(int, char **);

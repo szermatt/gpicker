@@ -177,17 +177,24 @@
       (when (eq 'run (process-status process))
 	(delete-process process)))))
 
-(defun gpicker-nogui-complete (string)
-  (let ((dest (cons nil nil)))
-    (tq-enqueue gpicker-tq (concat "?" string "\n") "\3" dest
-		#'gpicker-pick-nogui--collect-result)
-    (while (null (car dest))
-      (accept-process-output))
-    (cdr dest)))
+(defun gpicker-run-async-query (string buffer message-area)
+  (with-current-buffer buffer
+    (save-excursion
+      (delete-region (car message-area) (cdr message-area))
+      (goto-char (car message-area))
+      (insert (format "{...}" string))))
+  (setq gpicker-matches nil)
+  (tq-enqueue gpicker-tq (concat "?" string "\n") "\3"
+	      (list buffer gpicker-message-area)
+	      #'gpicker-pick-nogui--collect-result))
 
-(defun gpicker-pick-nogui--collect-result (dest answer)
-  (setcar dest t)
-  (setcdr dest (split-string answer "[\0\3]" t)))
+(defun gpicker-pick-nogui--collect-result (args answer)
+  (condition-case err
+      (let ((answers (split-string answer "[\0\3]" t)))
+	(setq gpicker-matches answers)
+	(apply 'gpicker-display-matches args))
+    (error (message "error collecting results: %s"
+		    (error-message-string err)))))
 
 (defvar gpicker-minibuf-depth
   "Value we expect to be returned by `minibuffer-depth' in the minibuffer.")
@@ -209,47 +216,53 @@
   (gpicker-exhibit))
 
 (defun gpicker-tidy ()
-  (if (and (boundp 'gpicker-eoinput)
-	   gpicker-eoinput)
-      (if (> gpicker-eoinput (point-max))
-	  ;; Oops, got rug pulled out from under us - reinit:
-	  (setq gpicker-eoinput (point-max))
-	(let ((buffer-undo-list buffer-undo-list )) ; prevent entry
-	  (delete-region gpicker-eoinput (point-max)))))
+  (if (boundp 'gpicker-message-area)
+      (delete-region (car gpicker-message-area) (cdr gpicker-message-area)))
   ;; Reestablish the local variable 'cause minibuffer-setup is weird:
-  (make-local-variable 'gpicker-eoinput))
+  (make-local-variable 'gpicker-message-area))
 
 (defun gpicker-exhibit ()
   (let ((contents (buffer-substring (minibuffer-prompt-end) (point-max)))
 	(buffer-undo-list t))
     (save-excursion
-      (goto-char (point-max))
-                                        ; Register the end of input, so we
-                                        ; know where the extra stuff
-                                        ; (match-status info) begins:
-      (if (not (boundp 'gpicker-eoinput))
+      (if (not (boundp 'gpicker-message-area))
 	  ;; In case it got wiped out by major mode business:
-	  (make-local-variable 'gpicker-eoinput))
-      (setq gpicker-eoinput (point)))
-    (unless (string= gpicker-last-search contents)
-      (setq gpicker-matches (gpicker-nogui-complete contents)))
-    (setq gpicker-last-search contents)
-    (gpicker-display-completion gpicker-matches)))
-
-(defun gpicker-display-completion (completion)
-  (save-excursion 
-    (goto-char gpicker-eoinput)
-    (if (null completion)
-	(insert " [no match]")
+	  (make-local-variable 'gpicker-message-area))
+      (goto-char (point-max))
+      (setq gpicker-message-area (cons (point-marker) (point-marker)))
+      (set-marker-insertion-type (car gpicker-message-area) nil)
+      (set-marker-insertion-type (cdr gpicker-message-area) t))
+    (if (string= gpicker-last-search contents)
+	(gpicker-display-matches (current-buffer) gpicker-message-area)
       (progn
-	(insert "{")
-	(let ((start (point)))
-	  (insert (car completion))
-	  (put-text-property start (point) 'face 'iswitchb-current-match))
-	(dolist (filename (cdr completion))
-	  (insert " ")
-	  (insert filename))
-	(insert "}")))))
+	(setq gpicker-last-search contents)
+	(gpicker-run-async-query contents (current-buffer) gpicker-message-area)))))
+
+(defun gpicker-display-matches (buffer message-area)
+  (with-current-buffer buffer
+    (save-excursion
+      (if (boundp 'gpicker-message-area)
+	  (progn
+	    (delete-region (car gpicker-message-area)
+			   (cdr gpicker-message-area))
+	    (goto-char (car message-area)))
+	(progn
+	  (make-local-variable 'gpicker-message-area)
+	  (goto-char (point-max))
+	  (setq gpicker-message-area (cons (point) (point)))
+	  (set-marker-insertion-type (car gpicker-message-area) nil)
+	  (set-marker-insertion-type (cdr gpicker-message-area) t)))
+      (if (null gpicker-matches)
+	  (insert " [no match]")
+	(progn
+	  (insert "{")
+	  (let ((start (point)))
+	    (insert (car gpicker-matches))
+	    (put-text-property start (point) 'face 'iswitchb-current-match))
+	  (dolist (filename (cdr gpicker-matches))
+	    (insert " ")
+	    (insert filename))
+	  (insert "}"))))))
 
 (defun gpicker-set-project-type (type)
   "Sets type of current gpicker project"
