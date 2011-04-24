@@ -79,15 +79,6 @@ gboolean gpicker_loading_completed;
 static
 struct do_with_main_loop_process *loading_process;
 
-GPid child_pid;
-
-static
-void kill_child_pid(void)
-{
-	if (child_pid)
-		kill(child_pid, SIGINT);
-}
-
 static void filter_tree_view_tail();
 
 static
@@ -333,72 +324,12 @@ gboolean async_load_callback(void *_dummy)
 }
 
 static
-int my_popen(char *string, GPid *child_pid)
-{
-	char *argv[] = {"/bin/sh", "-c", string, 0};
-	int fd;
-	gboolean ok = g_spawn_async_with_pipes(0, // work dir
-					       argv,
-					       0, //envp
-					       (GSpawnFlags) 0, // flags
-					       0, 0, //child setup & user data
-					       child_pid,
-					       0, // stdin
-					       &fd, //stdout
-					       0, //stderr
-					       0);
-	if (!ok)
-		fd = -1;
-	return fd;
-}
-
-static
 gpointer setup_filenames_core(gpointer _dummy,
 			      struct do_with_main_loop_process *p)
 {
-	int pipe = -1;
-
-	if (project_type && !strcmp(project_type, "mlocate")) {
-		do_with_main_loop_init_complete(p);
-		int fd = open(project_dir, O_RDONLY);
-		if (fd < 0) {
-			perror("setup_filenames:open");
-			exit(1);
-		}
-		read_filenames_from_mlocate_db(fd);
-		close(fd);
-		return 0;
-	}
-
-	if (read_stdin)
-		pipe = fileno(stdin);
-	else if (!project_type || !strcmp(project_type, "default")) {
-		char *find_command = getenv("GPICKER_FIND");
-		if (!find_command)
-			find_command = FIND_INVOCATION;
-		pipe = my_popen(find_command, &child_pid);
-	} else if (!strcmp(project_type, "git"))
-		pipe = my_popen("git ls-files --exclude-standard -c -o -z .", &child_pid);
-	else if (!strcmp(project_type, "hg"))
-		pipe = my_popen("hg locate -0 --include .", &child_pid);
-	else if (!strcmp(project_type, "bzr"))
-		pipe = my_popen("bzr ls -R --versioned --unknown --null", &child_pid);
-
-	do_with_main_loop_init_complete(p);
-
-	if (pipe < 0) {
-		perror("failed to spawn find");
-		exit(1);
-	}
-
-	read_filenames(pipe);
-
-	if (child_pid) {
-		kill(child_pid, SIGINT);
-		child_pid = 0;
-	}
-	close(pipe);
-
+        if (!setup_filenames_init(project_type, project_dir, read_stdin))
+                exit(1);
+        setup_filenames_read();
 	return 0;
 }
 
@@ -709,8 +640,6 @@ int main(int argc, char **argv)
 
 	g_thread_init(0);
 	parse_options(argc, argv); /* inits GTK+ too */
-
-	atexit(kill_child_pid);
 
 	finish_timing(tstart, "gtk initialization");
 	tstart = start_timing();

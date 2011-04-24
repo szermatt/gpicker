@@ -7,7 +7,8 @@ gpicker_SOURCES = main.c scorer.c filtration.c vector.c xmalloc.c \
  do_with_main_loop.h do_with_main_loop.c \
  loading.h loading.c \
  simple_main.c \
- filtration.h vector.h scorer.h xmalloc.h timing.h inline_qsort.h
+ filtration.h vector.h scorer.h xmalloc.h timing.h inline_qsort.h \
+ setup_filenames.c setup_filenames.h 
 gpicker_LDADD = @gtk2_LIBS@ @gthread_LIBS@ lib/libgnu.a
 AM_CFLAGS = @gtk2_CFLAGS@ @gthread_CFLAGS@
 AM_CPPFLAGS = -Ilib @EXTRA_CPPFLAGS@
