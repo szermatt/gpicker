@@ -36,7 +36,7 @@
 (defvar *gpicker-mb-path* nil)
 
 (defun gpicker-mb-get-path ()
-  "Returns a path to gpicker-daemon."
+  "Return a path to gpicker-daemon."
   (or *gpicker-mb-path* (concat *gpicker-path* "-daemon")))
 
 (defvar gpicker-mb-map
@@ -51,13 +51,9 @@
 (defvar gpicker-mb-minibuf-depth
   "Value we expect to be returned by `minibuffer-depth' in the minibuffer.")
 
-;; macros and subst
-
 (defsubst gpicker-mb-update-matches (elem)
   "Call `gpicker-mb-chop' on `gpicker-mb-matches' with ELEM."
   (setq gpicker-mb-matches (gpicker-mb-chop gpicker-mb-matches elem)))
-
-;;; interactive functions
 
 (defun gpicker-mb-next-match ()
   "Select the second matching file on the list.
@@ -121,8 +117,7 @@ ARGS should contain (query . buffer), the query that is run and
 the minibuffer.
 
 ANSWER should contain a complete answer from gpicker-daemon, including
-the final \"\\0\\0\\n\"
-"
+the final \"\\0\\0\\n\""
   (condition-case err
       (let ((string (car args))
 	    (buffer (cdr args)))
@@ -149,7 +144,7 @@ Called from `minibuffer-setup-hook'."
 (defun gpicker-mb-exhibit ()
   "Run the typed query and displays the result in the minibuffer.
 
-Should be called with the minibuffer as the current buffer. "
+Should be called with the minibuffer as the current buffer."
   (gpicker-mb-clear-text)
   (let ((contents (buffer-substring (minibuffer-prompt-end) (point-max)))
 	(buffer-undo-list t))
@@ -188,8 +183,7 @@ BUFFER should be the minibuffer."
   (insert text))
 
 (defun gpicker-mb-clear-text ()
-  "Clear text inserted by `gpicker-mb-insert' from the current buffer.
-"
+  "Clear text inserted by `gpicker-mb-insert' from the current buffer."
   (save-excursion
     (goto-char (point-min))
     (while (< (point) (point-max))
@@ -201,7 +195,7 @@ BUFFER should be the minibuffer."
 		    (point) 'gpicker-mb nil (point-max)))))))
 
 (defun gpicker-mb-chop (list elem)
-  "Remove all elements before ELEM and put them at the end of LIST."
+  "Remove all elements from LIST before ELEM and put them at the end."
   (let ((ret nil)
 	(next nil)
 	(sofar nil))
