@@ -44,9 +44,6 @@ char *default_eat_prefix = "./";
 char *eat_prefix;
 
 int gpicker_bytes_readen;
-int gpicker_load_stdin_too;
-
-int dont_sort_initial;
 
 static volatile
 int reading_aborted;
@@ -83,10 +80,6 @@ char *input_names(int fd, char **endp)
 			return buf;
 		}
 		if (readen == 0) {
-			if (gpicker_load_stdin_too && fd != 0) {
-				fd = 0;
-				continue;
-			}
 			break;
 		}
 		else if (readen < 0) {
@@ -96,7 +89,7 @@ char *input_names(int fd, char **endp)
 			break;
 		}
 		filled += readen;
-		gpicker_bytes_readen = filled;
+                gpicker_bytes_readen += readen;
 		if (bufsize - filled < MIN_BUFSIZE_FREE) {
 			bufsize = filled + MIN_BUFSIZE_FREE * 2;
 			buf = xrealloc(buf, bufsize);
@@ -147,10 +140,6 @@ void read_filenames(int fd)
 		p[-1] = 0;
 		add_filename(start, dirlength);
 	}
-
-	if (!dont_sort && !dont_sort_initial)
-		_quicksort_top(files, files_vector.used, sizeof(struct filename),
-			       (int (*)(const void *, const void *))filename_compare, files + FILTER_LIMIT);
 
 	finish_timing(start, "filenames parsing");
 }
@@ -256,16 +245,12 @@ void read_filenames_from_mlocate_db(int fd)
 
 	free(data);
 	finish_timing(start, "read_filenames_from_mlocate_db");
-
-	if (gpicker_load_stdin_too) {
-		read_filenames(0);
 	}
 
-	if (!dont_sort) {
-		start = start_timing();
+void read_filenames_sort() {
+        timing_t start = start_timing();
 		_quicksort_top(files, files_vector.used, sizeof(struct filename),
 			       (int (*)(const void *, const void *))filename_compare, files + FILTER_LIMIT);
 		finish_timing(start, "initial qsort");
 	}
-}
 #endif /* NO_CONFIG */

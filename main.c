@@ -71,6 +71,8 @@ static gboolean read_stdin;
 static gboolean output_index;
 static gboolean disable_bzr;
 static gboolean disable_hg;
+static gboolean dont_sort_initial;
+static gboolean load_stdin_too;
 
 static
 gboolean program_exited;
@@ -329,7 +331,12 @@ gpointer setup_filenames_core(gpointer _dummy,
 {
         if (!setup_filenames_init(project_type, project_dir, read_stdin))
                 exit(1);
+        do_with_main_loop_init_complete(p);
         setup_filenames_read();
+        if (load_stdin_too)
+          read_filenames(0);
+        if (!dont_sort && !dont_sort_initial)
+          read_filenames_sort();
 	return 0;
 }
 
@@ -423,7 +430,7 @@ GOptionEntry entries[] = {
 	{"print-pattern", 'p', 0, G_OPTION_ARG_NONE, &print_pattern, "print pattern if nothing matched (default is false)", 0},
 	{"dont-sort", 'S', 0, G_OPTION_ARG_NONE, &dont_sort_initial, "dont sort result list", 0},
 	{"init-filter", 'i', 0, G_OPTION_ARG_STRING, &init_filter, "initial filter value", 0},
-	{"load-stdin-too", 0, 0, G_OPTION_ARG_NONE, &gpicker_load_stdin_too, "read additional filenames from stdin", 0},
+	{"load-stdin-too", 0, 0, G_OPTION_ARG_NONE, &load_stdin_too, "read additional filenames from stdin", 0},
 	{"output-index", 'I', 0, G_OPTION_ARG_NONE, &output_index, "print selection index instead of value (implies -S)", 0},
 	{"ignore-positions", 'P', 0, G_OPTION_ARG_NONE, &ignore_positions, "ignore match position for sorting", 0},
 	{0}
