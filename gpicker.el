@@ -59,6 +59,11 @@
 (defvar *gpicker-project-type* "guess")
 (defvar *gpicker-errors-log* (expand-file-name "~/gpicker-errors.log"))
 (defvar *gpicker-buffers-list* (expand-file-name "~/gpicker-buffers-list"))
+(defvar *gpicker-force-nogui* nil)
+
+;; load gpicker-mb only if necessary
+(autoload 'gpicker-mb-pick 'gpicker-mb
+  "Run gpicker on PROJECT-DIR with the specified GPICKER-MB-ARGS in the minibuffer." t)
 
 (defun gpicker-delete-file (path)
   (condition-case e
@@ -93,29 +98,33 @@
 (defun gpicker-pick (dir)
   (unless *gpicker-project-dir*
     (error "visit gpicker project via 'gpicker-visit-project first!"))
-  (let ((gpicker-args (append *gpicker-extra-args*
-                               (list "-t"
-                                     (or *gpicker-project-type* "default")
-                                     dir)))
-        (at-point (ffap-string-at-point)))
-    (when (and at-point
-               (> (string-bytes at-point) 0))
-      (setq gpicker-args (list* "--init-filter" at-point gpicker-args)))
-    (with-temp-file *gpicker-buffers-list*
-      (let ((standard-output (current-buffer)))
-        (dolist (b (buffer-list))
-          (let ((name (buffer-name b)))
-            (unless (or (eq (current-buffer) b)
-                        (string= (substring name 0 1) " ")
-                        (buffer-file-name b))
-              (princ (buffer-name b))
-              (princ "\0"))))))
-    (unwind-protect (let ((rv (apply #'gpicker-grab-stdout
-                                     *gpicker-path*
-                                     gpicker-args)))
-                      (and rv
-                           (split-string rv "\0" t)))
-      (discard-input))))
+  (if (or *gpicker-force-nogui* (not (window-system)))
+      ;; no-gui mode
+      (gpicker-mb-pick dir *gpicker-project-type*)
+    ;; gui mode
+    (let ((gpicker-args (append *gpicker-extra-args*
+				(list "-t"
+				      (or *gpicker-project-type* "default")
+				      dir)))
+	  (at-point (ffap-string-at-point)))
+      (when (and at-point
+		 (> (string-bytes at-point) 0))
+	(setq gpicker-args (list* "--init-filter" at-point gpicker-args)))
+      (with-temp-file *gpicker-buffers-list*
+	(let ((standard-output (current-buffer)))
+	  (dolist (b (buffer-list))
+	    (let ((name (buffer-name b)))
+	      (unless (or (eq (current-buffer) b)
+			  (string= (substring name 0 1) " ")
+			  (buffer-file-name b))
+		(princ (buffer-name b))
+		(princ "\0"))))))
+      (unwind-protect (let ((rv (apply #'gpicker-grab-stdout
+				       *gpicker-path*
+				       gpicker-args)))
+			(and rv
+			     (split-string rv "\0" t)))
+	(discard-input)))))
 
 (defun gpicker-set-project-type (type)
   "Sets type of current gpicker project"
