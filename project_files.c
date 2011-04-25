@@ -29,16 +29,10 @@ GOptionEntry project_file_entries[] = {
   {0}
 };
 
-static 
-gboolean initialized;
-static
-GPid child_pid;
-static 
-int pipe_fd;
-static 
-int project_dir_fd;
-static 
-gboolean mlocate;
+static gboolean initialized;
+static GPid child_pid;
+static int pipe_fd;
+static int project_dir_fd;
 
 static
 void kill_child_pid(void)
@@ -118,7 +112,7 @@ void enter_project_dir(const char *project_dir)
     exit(1);
   }
 
-  if (project_type && !strcmp(project_type, "guess")) {
+  if (!strcmp(project_type, "guess")) {
     if (check_parents(".git"))
       project_type = "git";
     else if (!disable_hg && check_parents(".hg"))
@@ -134,7 +128,9 @@ void project_files_init(const char *project_dir)
 {
         assert(!initialized);
 
-        if (project_type && strcmp(project_type, "guess") &&
+        if (!project_type)
+                project_type = "default";
+        else if (strcmp(project_type, "guess") &&
             strcmp(project_type, "git") &&
             strcmp(project_type, "hg") &&
             strcmp(project_type, "bzr") &&
@@ -144,10 +140,9 @@ void project_files_init(const char *project_dir)
           exit(1);
         }
 
-        if (!project_type || strcmp(project_type, "mlocate"))
+        if (strcmp(project_type, "mlocate"))
           enter_project_dir(project_dir);
 
-        mlocate = FALSE;
         project_dir_fd = -1;
         pipe_fd = -1;
         child_pid = 0;
@@ -159,7 +154,6 @@ void project_files_init(const char *project_dir)
                         perror("setup_filenames:open");
                         exit(1);
                 }
-                mlocate = TRUE;
                 initialized = TRUE;
                 return;
         } 
@@ -188,7 +182,7 @@ void project_files_read(void)
 {
         assert(initialized);
 
-        if (mlocate) {
+        if (project_type && !strcmp(project_type, "mlocate")) {
                 assert(project_dir_fd >= 0);
                 read_filenames_from_mlocate_db(project_dir_fd);
                 close(project_dir_fd);
