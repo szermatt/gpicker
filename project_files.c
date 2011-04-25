@@ -15,6 +15,20 @@
 #include "do_with_main_loop.h"
 #include "loading.h"
 
+static char *project_type;
+static gboolean disable_bzr;
+static gboolean disable_hg;
+
+GOptionEntry project_file_entries[] = {
+  {"project-type", 't', 0, G_OPTION_ARG_STRING, &project_type, 
+   "respect ignored files for given kind of VCS (default, git, bzr, hg, guess, mlocate)", 0},
+  {"disable-bzr", 0, 0, G_OPTION_ARG_NONE, &disable_bzr, 
+   "disable autodetection of Bazaar project type", 0},
+  {"disable-hg", 0, 0, G_OPTION_ARG_NONE, &disable_hg, 
+   "disable autodetection of Mercurial project type", 0},
+  {0}
+};
+
 static 
 gboolean initialized;
 static
@@ -54,10 +68,85 @@ int my_popen(char *string, GPid *child_pid)
         return fd;
 }
 
-gboolean setup_filenames_init(
-        const char *project_type, const char *project_dir, gboolean read_stdin) 
+static
+int isdir(char* name)
+{
+  struct stat statbuf;
+
+  if (stat(name, &statbuf) < 0 || !S_ISDIR(statbuf.st_mode)) {
+    return 0;
+  }
+  return 1;
+}
+
+static
+int check_parents(char* name)
+{
+  struct stat rootdir;
+  struct stat curdir;
+  int isroot, rv;
+  int cwd = dirfd(opendir("."));
+
+  stat("/", &rootdir);
+  while (1) {
+    if (isdir(name)) {
+      rv = 1;
+      break;
+    }
+    stat(".", &curdir);
+    isroot = (rootdir.st_dev == curdir.st_dev &&
+              rootdir.st_ino == curdir.st_ino);
+    if (isroot || chdir("..") == -1) {
+      rv = 0;
+      break;
+    }
+  }
+  if (fchdir(cwd) < 0) {
+    perror("cannot chdir back");
+    exit(1);
+  }
+  return rv;
+}
+
+static
+void enter_project_dir(const char *project_dir)
+{
+  int rv = chdir(project_dir);
+
+  if (rv) {
+    perror("cannot chdir to project directory");
+    exit(1);
+  }
+
+  if (project_type && !strcmp(project_type, "guess")) {
+    if (check_parents(".git"))
+      project_type = "git";
+    else if (!disable_hg && check_parents(".hg"))
+      project_type = "hg";
+    else if (!disable_bzr && check_parents(".bzr"))
+      project_type = "bzr";
+    else
+      project_type = "default";
+  }
+}
+
+void project_files_init(const char *project_dir) 
 {
         assert(!initialized);
+
+        if (project_type && strcmp(project_type, "guess") &&
+            strcmp(project_type, "git") &&
+            strcmp(project_type, "hg") &&
+            strcmp(project_type, "bzr") &&
+            strcmp(project_type, "default") &&
+            strcmp(project_type, "mlocate")) {
+          fprintf(stderr, "Unknown project type specified: %s\n", project_type);
+          exit(1);
+        }
+
+        if (!project_type || strcmp(project_type, "mlocate"))
+          enter_project_dir(project_dir);
+
         mlocate = FALSE;
         project_dir_fd = -1;
         pipe_fd = -1;
@@ -68,16 +157,14 @@ gboolean setup_filenames_init(
                 project_dir_fd = open(project_dir, O_RDONLY);
                 if (project_dir_fd < 0) {
                         perror("setup_filenames:open");
-                        return FALSE;
+                        exit(1);
                 }
                 mlocate = TRUE;
                 initialized = TRUE;
-                return TRUE;
+                return;
         } 
 
-        if (read_stdin)
-                pipe_fd = fileno(stdin);
-        else if (!project_type || !strcmp(project_type, "default")) {
+        if (!project_type || !strcmp(project_type, "default")) {
                 char *find_command = getenv("GPICKER_FIND");
                 if (!find_command)
                         find_command = FIND_INVOCATION;
@@ -91,11 +178,10 @@ gboolean setup_filenames_init(
 
         if (pipe_fd < 0) {
                 perror("failed to spawn find");
-                return FALSE;
+                exit(1);
         }
 
         initialized = TRUE;
-        return TRUE;
 }
 
 void setup_filenames_read(void) 

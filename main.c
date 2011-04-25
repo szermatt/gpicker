@@ -53,6 +53,7 @@
 #include "inline_qsort.h"
 #include "loading.h"
 #include "do_with_main_loop.h"
+#include "project_files.h"
 
 static GtkWindow *top_window;
 static GtkEntry *name_entry;
@@ -64,13 +65,10 @@ static gboolean show_version;
 static gboolean multiselect;
 static gboolean align_left;
 static gboolean print_pattern;
-static char *project_type;
 static char *project_dir;
 static char *pattern_text;
 static gboolean read_stdin;
 static gboolean output_index;
-static gboolean disable_bzr;
-static gboolean disable_hg;
 static gboolean dont_sort_initial;
 static gboolean load_stdin_too;
 
@@ -329,12 +327,17 @@ static
 gpointer setup_filenames_core(gpointer _dummy,
 			      struct do_with_main_loop_process *p)
 {
-        if (!setup_filenames_init(project_type, project_dir, read_stdin))
-                exit(1);
-        do_with_main_loop_init_complete(p);
-        setup_filenames_read();
-        if (load_stdin_too)
-          read_filenames(0);
+        if (read_stdin) 
+        {
+                do_with_main_loop_init_complete(p);
+                read_filenames(0);
+        } else {
+                project_files_init(project_dir);
+                do_with_main_loop_init_complete(p);
+                setup_filenames_read();
+                if (load_stdin_too)
+                        read_filenames(0);
+        }
         if (!dont_sort && !dont_sort_initial)
           read_filenames_sort();
 	return 0;
@@ -419,9 +422,6 @@ void setup_signals(void)
 static
 GOptionEntry entries[] = {
 	{"version", 0, 0, G_OPTION_ARG_NONE, &show_version, "show version", 0},
-	{"project-type", 't', 0, G_OPTION_ARG_STRING, &project_type, "respect ignored files for given kind of VCS (default, git, bzr, hg, guess, mlocate)", 0},
-	{"disable-bzr", 0, 0, G_OPTION_ARG_NONE, &disable_bzr, "disable autodetection of Bazaar project type", 0},
-	{"disable-hg", 0, 0, G_OPTION_ARG_NONE, &disable_hg, "disable autodetection of Mercurial project type", 0},
 	{"name-separator", 'n', 0, G_OPTION_ARG_STRING, &name_separator, "separator of filenames from stdin (\\0 is default)", 0},
 	{"dir-separator", 'd', 0, G_OPTION_ARG_STRING, &dir_separator, "separator of directory names from stdin (/ is default)", 0},
 	{"eat-prefix", 0, 0, G_OPTION_ARG_STRING, &eat_prefix, "eat this prefix from names (./ is default)", 0},
@@ -435,68 +435,6 @@ GOptionEntry entries[] = {
 	{"ignore-positions", 'P', 0, G_OPTION_ARG_NONE, &ignore_positions, "ignore match position for sorting", 0},
 	{0}
 };
-
-static
-int isdir(char* name)
-{
-	struct stat statbuf;
-
-	if (stat(name, &statbuf) < 0 || !S_ISDIR(statbuf.st_mode)) {
-		return 0;
-	}
-	return 1;
-}
-
-static
-int check_parents(char* name)
-{
-	struct stat rootdir;
-	struct stat curdir;
-	int isroot, rv;
-	int cwd = dirfd(opendir("."));
-
-	stat("/", &rootdir);
-	while (1) {
-		if (isdir(name)) {
-			rv = 1;
-			break;
-		}
-		stat(".", &curdir);
-		isroot = (rootdir.st_dev == curdir.st_dev &&
-				rootdir.st_ino == curdir.st_ino);
-		if (isroot || chdir("..") == -1) {
-			rv = 0;
-			break;
-		}
-	}
-	if (fchdir(cwd) < 0) {
-		perror("cannot chdir back");
-		exit(1);
-	}
-	return rv;
-}
-
-static
-void enter_project_dir()
-{
-	int rv = chdir(project_dir);
-
-	if (rv) {
-		perror("cannot chdir to project directory");
-		exit(1);
-	}
-
-	if (project_type && !strcmp(project_type, "guess")) {
-		if (check_parents(".git"))
-			project_type = "git";
-		else if (!disable_hg && check_parents(".hg"))
-			project_type = "hg";
-		else if (!disable_bzr && check_parents(".bzr"))
-			project_type = "bzr";
-		else
-			project_type = "default";
-	}
-}
 
 static
 void process_separator(char **separator_place, char *name, char *def)
@@ -532,6 +470,7 @@ void parse_options(int argc, char **argv)
 	GOptionContext *context;
 	context = g_option_context_new("PROJECT-DIR-PATH - quickly pick a file from the project");
 	g_option_context_add_main_entries(context, entries, 0);
+	g_option_context_add_main_entries(context, project_file_entries, 0);
 	g_option_context_add_group(context, gtk_get_option_group(TRUE));
 
 	if (!g_option_context_parse(context, &argc, &argv, &error)) {
@@ -551,15 +490,6 @@ void parse_options(int argc, char **argv)
 		fputs(g_option_context_get_help(context, TRUE, NULL), stderr);
 		exit(1);
 	}
-	if (project_type && strcmp(project_type, "guess") &&
-			strcmp(project_type, "git") &&
-			strcmp(project_type, "hg") &&
-			strcmp(project_type, "bzr") &&
-			strcmp(project_type, "default") &&
-			strcmp(project_type, "mlocate")) {
-		fprintf(stderr, "Unknown project type specified: %s\n", project_type);
-		exit(1);
-	}
 
 	project_dir = argv[1];
 	read_stdin = !strcmp(project_dir, "-");
@@ -567,13 +497,6 @@ void parse_options(int argc, char **argv)
 	process_separator(&name_separator, "name-separator", "");
 	process_separator(&dir_separator, "dir-separator", "/");
 	filter_dir_separator = dir_separator[0];
-
-	if (read_stdin) {
-		if (project_type)
-			fprintf(stderr, "Warning: project type with stdin input has no effect\n");
-	} else if (!project_type || strcmp(project_type, "mlocate")) {
-		enter_project_dir();
-	}
 }
 
 static
