@@ -62,7 +62,7 @@
 (defvar *gpicker-force-nogui* nil)
 
 ;; load gpicker-mb only if necessary
-(autoload 'gpicker-mb-pick 'gpicker-mb
+(autoload 'gpicker-mb-pick "gpicker-mb"
   "Run gpicker on PROJECT-DIR with the specified GPICKER-MB-ARGS in the minibuffer." t)
 
 (defun gpicker-delete-file (path)
