@@ -154,7 +154,7 @@ int daemon_loop(void)
         return 0;
 }
 
-int daemon_main(int argc, char **argv)
+int main(int argc, char **argv)
 {
         const char *project_dir;
         init_loading();
