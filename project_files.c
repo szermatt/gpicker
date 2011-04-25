@@ -186,11 +186,15 @@ void project_files_init(const char *project_dir)
 
 void setup_filenames_read(void) 
 {
+        assert(initialized);
+
         if (mlocate) {
+                assert(project_dir_fd >= 0);
                 read_filenames_from_mlocate_db(project_dir_fd);
                 close(project_dir_fd);
                 return;
         }
+        assert(pipe_fd >= 0);
 
         read_filenames(pipe_fd);
 
