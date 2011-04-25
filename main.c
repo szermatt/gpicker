@@ -334,7 +334,7 @@ gpointer setup_filenames_core(gpointer _dummy,
         } else {
                 project_files_init(project_dir);
                 do_with_main_loop_init_complete(p);
-                setup_filenames_read();
+                project_files_read();
                 if (load_stdin_too)
                         read_filenames(0);
         }

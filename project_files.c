@@ -184,7 +184,7 @@ void project_files_init(const char *project_dir)
         initialized = TRUE;
 }
 
-void setup_filenames_read(void) 
+void project_files_read(void) 
 {
         assert(initialized);
 
