@@ -1,12 +1,13 @@
 ACLOCAL_AMFLAGS = -I m4
 SUBDIRS = lib
 
-bin_PROGRAMS = gpicker gpicker-simple
+bin_PROGRAMS = gpicker gpicker-simple gpicker-daemon
 gpicker_SOURCES = main.c scorer.c filtration.c vector.c xmalloc.c \
  refcounted_str.c refcounted_str.h compiler.h \
  do_with_main_loop.h do_with_main_loop.c \
  loading.h loading.c \
  simple_main.c \
+ daemon_main.c \
  filtration.h vector.h scorer.h xmalloc.h timing.h inline_qsort.h \
  project_files.c project_files.h 
 gpicker_LDADD = @gtk2_LIBS@ @gthread_LIBS@ lib/libgnu.a
@@ -23,6 +24,11 @@ EXTRA_DIST = gpicker.el gpicker.vim IDEAS CodingStyle README.osx \
 gpicker_simple_SOURCES = simple_main.c
 gpicker-simple: gpicker
 	ln -f gpicker gpicker-simple
+
+gpicker_daemon_SOURCES = daemon_main.c
+gpicker-daemon: gpicker
+	ln -f gpicker gpicker-daemon
+
 
 if HAVE_CHECK
 

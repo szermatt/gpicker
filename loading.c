@@ -38,8 +38,10 @@
 
 struct vector files_vector = {.eltsize = sizeof(struct filename)};
 
-char *name_separator;
-char *dir_separator;
+static char default_separators[2] = { '\0', '/' };
+
+char *name_separator = &default_separators[0];
+char *dir_separator = &default_separators[1];
 char *default_eat_prefix = "./";
 char *eat_prefix;
 
