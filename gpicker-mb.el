@@ -95,10 +95,7 @@ Normally called by `gpicker-pick'."
 
 The result will eventually be displayed in the given BUFFER,
 which should be the minibuffer."
-  (with-current-buffer buffer
-    (gpicker-mb-clear-text)
-    (goto-char (point-max))
-    (gpicker-mb-insert (format "{...}" query)))
+  (gpicker-mb-set-text buffer "{...}")
   (setq gpicker-mb-matches nil)
   (tq-enqueue gpicker-mb-tq (concat "?" query "\n") "\0\0\n"
 	      (cons query buffer)
@@ -124,7 +121,7 @@ the final \"\\0\\0\\n\""
 	(when (eq gpicker-mb-last-search string)
 	  (let ((answers (split-string (substring answer 0 -3) "\0" t)))
 	    (setq gpicker-mb-matches answers)
-	    (gpicker-mb-display-matches buffer))))
+	    (gpicker-mb-set-text buffer (gpicker-mb-matches-as-string)))))
     (error (message "error collecting results: %s"
 		    (error-message-string err)))))
 
@@ -149,38 +146,39 @@ Should be called with the minibuffer as the current buffer."
   (let ((contents (buffer-substring (minibuffer-prompt-end) (point-max)))
 	(buffer-undo-list t))
     (if (string= gpicker-mb-last-search contents)
-	(gpicker-mb-display-matches (current-buffer))
+	(gpicker-mb-set-text (current-buffer) (gpicker-mb-matches-as-string))
       (progn
 	(setq gpicker-mb-last-search contents)
 	(gpicker-mb-run-async-query contents (current-buffer))))))
 
-(defun gpicker-mb-display-matches (buffer)
-  "Display current selection into the given BUFFER.
+(defun gpicker-mb-matches-as-string ()
+  "Returns a string representation of a match list."
+  (if (null gpicker-mb-matches)
+      " [no match]"
+    ;; matches
+    (let ((text-list (list))
+	  (first (copy-seq (car gpicker-mb-matches)))
+	  (rest (cdr gpicker-mb-matches)))
+      (push "{" text-list)
+      (put-text-property 0 (length first) 'face 'iswitchb-current-match first)
+      (push first text-list)
+      (dolist (filename (cdr gpicker-mb-matches))
+	(push " " text-list)
+	(push filename text-list))
+      (push "}" text-list)
+      (apply 'concat (nreverse text-list)))))
 
-BUFFER should be the minibuffer."
-  (when (gpicker-mb-entryfn-p)
-    (with-current-buffer buffer
-      (gpicker-mb-clear-text)
-      (save-excursion
-	(goto-char (point-max))
-	(if (null gpicker-mb-matches)
-	    (gpicker-mb-insert " [no match]")
-	  (progn
-	    (gpicker-mb-insert "{")
-	    (let ((start (point)))
-	      (gpicker-mb-insert (car gpicker-mb-matches))
-	      (put-text-property start (point) 'face 'iswitchb-current-match))
-	    (dolist (filename (cdr gpicker-mb-matches))
-	      (gpicker-mb-insert " ")
-	      (gpicker-mb-insert filename))
-	    (gpicker-mb-insert "}")))))))
-
-(defun gpicker-mb-insert (text)
-  "Insert TEXT into the current buffer with special properties.
+(defun gpicker-mb-set-text (minibuffer text)
+  "Sets the completion text in to TEXT in the given MINIBUFFER
 
 `gpicker-mb-clear-text' only deletes text inserted this way."
-  (set-text-properties 0 (length text) '(gpicker-mb t) text)
-  (insert text))
+  (put-text-property 0 (length text) 'gpicker-mb t text)
+  (with-current-buffer minibuffer
+    (gpicker-mb-clear-text)
+    (when (gpicker-mb-entryfn-p)
+      (save-excursion
+	(goto-char (point-max))
+	(insert text)))))
 
 (defun gpicker-mb-clear-text ()
   "Clear text inserted by `gpicker-mb-insert' from the current buffer."
