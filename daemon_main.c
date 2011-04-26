@@ -68,14 +68,19 @@ char *read_daemon_command(char *buffer, int buflen, int *ignored) {
         abort(); /* should never be reached */
 }
 
-static
+static inline 
+void write_or_die(const char *buf, size_t count) {
+        if (write(1, buf, count) <= 0) {
+                perror("write error");
+                exit(1);
+        }
+}
+        
+static inline
 void write_etx() {
         /* mark the end of a query. */
         const static char* end = "\0\0\n";
-        if (write(1, end, 3) <= 0) {
-                perror("write");
-                exit(1);
-        }
+        write_or_die(end, 3);
 }
 
 static 
@@ -92,10 +97,7 @@ void write_results(char *pattern, int maxcount) {
                 result_count = maxcount;
         for (i = 0; i < result_count; i++) {
                 struct filename *filename = &filenames[results[i].index];
-                if (write(1, filename->p, strlen(filename->p) + 1) <= 0) {
-                        perror("write error");
-                        exit(1);
-                }
+                write_or_die(filename->p, strlen(filename->p) + 1);
         }
 }
 
@@ -124,23 +126,30 @@ int daemon_loop(void)
                         /* .: stop the daemon. */
                         runloop = 0;
                         break;
-                case '?':
-                        /** ?: get a small number of results. */
-                        write_results(stripws(line + 1), 8);
+                case '?': 
+                        /* ?<number>:<query> get up to <number> results. */
+                        line += 1;
+                        char *colon_p = strchr(line, ':');
+                        int max_results = 8;
+                        if (colon_p) {
+                                max_results = atoi(line);
+                                line = colon_p + 1;
+                        }
+                        if (max_results <= 0) {
+                                fprintf(stderr,
+                                        "Invalid result count in '?%s'.", 
+                                        stripws(line));
+                                break;
+                        }
+                        write_results(stripws(line), max_results);
                         break;
                 case '+':
-                        /** +: get a larger number of results. */
-                        write_results(stripws(line + 1), 25);
+                        /* +:<query> get all results. */
+                        write_results(stripws(line + 1), FILTER_LIMIT);
                         break;
                 default:
-                  {
-                    static const char *error = "Unknown query\n";
-                    if (write(1, error, strlen(error)) <= 0) {
-                      perror("write");
-                      exit(1);
-                    }
-                  }
-                  break;
+                        fprintf(stderr, "Unknown query '%c'\n", *line);
+                        break;
                 }
                 write_etx();
         }

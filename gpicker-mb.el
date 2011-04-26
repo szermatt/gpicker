@@ -39,6 +39,9 @@
   "Return a path to gpicker-daemon."
   (or *gpicker-mb-path* (concat *gpicker-path* "-daemon")))
 
+(defvar gpicker-md-max-result-count 3
+  "Maximum number of results displayed in the minibuffer")
+
 (defvar gpicker-mb-map
     (let ((map (make-sparse-keymap)))
     (set-keymap-parent map minibuffer-local-map)
@@ -97,7 +100,8 @@ The result will eventually be displayed in the given BUFFER,
 which should be the minibuffer."
   (gpicker-mb-set-text buffer "{...}")
   (setq gpicker-mb-matches nil)
-  (tq-enqueue gpicker-mb-tq (concat "?" query "\n") "\0\0\n"
+  (tq-enqueue gpicker-mb-tq
+	      (format "?%d:%s\n" gpicker-md-max-result-count query) "\0\0\n"
 	      (cons query buffer)
 	      #'gpicker-mb-pick-collect-result)
   ;; if the answers comes back immediately, display the
