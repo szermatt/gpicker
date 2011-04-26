@@ -79,31 +79,24 @@ void write_etx() {
 }
 
 static 
-void write_results(const char *pattern, int maxcount) {
-        filter_func filter_func;
-        filter_destructor destructor = 0;
-        void *filter;
-        int nfiles = files_vector.used;
+void write_results(char *pattern, int maxcount) {
+        struct filename *filenames = (struct filename *)files_vector.buffer;
+        struct filter_result *results;
         int i;
-        int accepted;
-        filter = prepare_filter(pattern, &filter_func, &destructor);
-        for (i = 0, accepted = 0; i < nfiles && accepted < maxcount; i++) {
-                int accept;
-                struct filename *filename;
-                struct filter_result result;
-                filename = ((struct filename *)(files_vector.buffer)) + i;
-                accept = filter_func(filename, filter, &result, 0);
-                if (!accept)
-                        continue;
-                /* Write filename, including final 0. */
+        int result_count;
+
+        filter_files_sync(pattern);
+        results = (struct filter_result *)filtered.buffer;
+        result_count = filtered.used;
+        if (result_count > maxcount) 
+                result_count = maxcount;
+        for (i = 0; i < result_count; i++) {
+                struct filename *filename = &filenames[results[i].index];
                 if (write(1, filename->p, strlen(filename->p) + 1) <= 0) {
                         perror("write error");
                         exit(1);
                 }
-                accepted++;
         }
-        if (destructor)
-                destructor(filter);
 }
 
 static
