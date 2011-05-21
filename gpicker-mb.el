@@ -39,7 +39,7 @@
   "Return a path to gpicker-daemon."
   (or *gpicker-mb-path* (concat *gpicker-path* "-daemon")))
 
-(defvar gpicker-md-max-result-count 3
+(defvar gpicker-md-max-result-count 8
   "Maximum number of results displayed in the minibuffer")
 
 (defvar gpicker-mb-map
