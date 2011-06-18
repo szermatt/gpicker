@@ -70,6 +70,8 @@
 
 ;;; Code
 
+(require 'iswitchb) ;; inherit faces from iswitchb
+
 (defvar *gpicker-mb-path* nil)
 
 (defun gpicker-mb-get-path ()
@@ -120,6 +122,16 @@ session is in progress.")
 
 This is an internal variable. It is set only while a gpicker
 session is in progress.")
+
+(defface gpicker-mb-single-match
+  '((t
+     (:inherit iswitchb-single-match)))
+  "Face for the single matching file name.")
+
+(defface gpicker-mb-current-match
+  '((t
+     (:inherit iswitchb-current-match)))
+  "Face for the current matching file name.")
 
 (defsubst gpicker-mb-update-matches (elem)
   "Call `gpicker-mb-chop' on `gpicker-mb-matches' with ELEM."
@@ -261,20 +273,27 @@ Should be called with the minibuffer as the current buffer."
 
 (defun gpicker-mb-matches-as-string ()
   "Returns a string representation of a match list."
-  (if (null gpicker-mb-matches)
-      " [no match]"
-    ;; matches
+  (cond
+   ((null gpicker-mb-matches)
+    " [No match]")
+   ;; single match
+   ((null (cdr gpicker-mb-matches))
+    (let ((text (concat "[" (car gpicker-mb-matches) "]")))
+      (put-text-property 1 (1- (length text)) 'face 'gpicker-mb-single-match text)
+      text))
+   ;; multiple matches
+   (t
     (let ((text-list (list))
 	  (first (copy-seq (car gpicker-mb-matches)))
 	  (rest (cdr gpicker-mb-matches)))
       (push "{" text-list)
-      (put-text-property 0 (length first) 'face 'iswitchb-current-match first)
+      (put-text-property 0 (length first) 'face 'gpicker-mb-current-match first)
       (push first text-list)
       (dolist (filename (cdr gpicker-mb-matches))
-	(push " " text-list)
+	(push "," text-list)
 	(push filename text-list))
       (push "}" text-list)
-      (apply 'concat (nreverse text-list)))))
+      (apply 'concat (nreverse text-list))))))
 
 (defun gpicker-mb-set-text (minibuffer text)
   "Sets the completion text in to TEXT in the given MINIBUFFER
