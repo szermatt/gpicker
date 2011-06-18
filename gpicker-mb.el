@@ -54,8 +54,33 @@
     map)
   "Minibuffer keymap for `gpicker-mb-pick'.")
 
-(defvar gpicker-mb-minibuf-depth
-  "Value we expect to be returned by `minibuffer-depth' in the minibuffer.")
+(defvar gpicker-mb-minibuf-depth nil
+  "Value we expect to be returned by `minibuffer-depth' in the minibuffer.
+
+This is an internal variable. It is set only while a gpicker
+session is in progress.")
+
+(defvar gpicker-mb-tq nil
+  "Transaction queue created for the current gpicker session.
+
+This is an internal variable. It is set only while a gpicker
+session is in progress.")
+
+(defvar gpicker-mb-matches nil
+  "List of matching filenames, relative to `gpicker-mb-project-dir'.
+
+The first match on this list is the active one.
+`gpicker-mb-next-match' and `gpicker-mb-prev-match' manipulate
+this list.
+
+This is an internal variable. It is set only while a gpicker
+session is in progress.")
+
+(defvar gpicker-mb-project-dir nil
+  "Root directory of the current gpicker session.
+
+This is an internal variable. It is set only while a gpicker
+session is in progress.")
 
 (defsubst gpicker-mb-update-matches (elem)
   "Call `gpicker-mb-chop' on `gpicker-mb-matches' with ELEM."
