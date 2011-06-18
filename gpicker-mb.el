@@ -45,9 +45,12 @@
 (defvar gpicker-mb-map
     (let ((map (make-sparse-keymap)))
     (set-keymap-parent map minibuffer-local-map)
-    (define-key map "\C-s" 'gpicker-mb-next-match)
-    (define-key map "\C-r" 'gpicker-mb-prev-match)
-    (define-key map "\C-m" 'exit-minibuffer)
+    (define-key map [(control s)] 'gpicker-mb-next-match)
+    (define-key map [(control r)] 'gpicker-mb-prev-match)
+    (define-key map [(control m)] 'exit-minibuffer)
+    (define-key map [(shift return)] 'gpicker-mb-open)
+    (define-key map [(control x) ?4 (return)] 'gpicker-mb-open-other-window)
+    (define-key map [(control x) ?5 (return)] 'gpicker-mb-open-other-frame)
     map)
   "Minibuffer keymap for `gpicker-mb-pick'.")
 
@@ -72,6 +75,39 @@ Put the last matching file at the beginning of the list."
   (interactive)
   (gpicker-mb-update-matches (car (last gpicker-mb-matches))))
 
+(defun gpicker-mb-open (&optional open-func)
+  "Open the current match using OPEN-FUNC.
+
+This function calls OPEN-FUNC on the current match. If OPEN-FUNC
+is nil, `open-file' is used.
+
+The gpicker prompt continues after this call, so you can open
+other files."
+  (interactive)
+  (let ((open-func (or open-func 'find-file))
+	(match (car gpicker-mb-matches))
+	(initial-window (selected-window)))
+    (when match
+      (funcall open-func
+	       (expand-file-name match gpicker-mb-project-dir))
+      (select-window initial-window))))
+
+(defun gpicker-mb-open-other-window ()
+  "Open the current match in another window.
+
+See `gpicker-mb-open'."
+  (interactive)
+  (gpicker-mb-open 'find-file-other-window))
+
+(defun gpicker-mb-open-other-frame ()
+  "Open the current match in another frame.
+
+See `gpicker-mb-open'."
+  (interactive)
+  (let ((initial-frame (selected-frame)))
+    (gpicker-mb-open 'find-file-other-frame)
+    (select-frame-set-input-focus initial-frame)))
+
 (defun gpicker-mb-pick (project-dir project-type)
   "Run gpicker on PROJECT-DIR with the specified PROJECT-TYPE in the minibuffer.
 
@@ -86,6 +122,7 @@ Normally called by `gpicker-pick'."
 	      (gpicker-mb-matches nil)
 	      (gpicker-mb-last-search nil)
 	      (gpicker-mb-minibuf-depth (1+ (minibuffer-depth)))
+	      (gpicker-mb-project-dir project-dir)
 	      (minibuffer-local-completion-map gpicker-mb-map))
 	  (completing-read "gpick " '(("dummy" . 1)))
 	  (list (let ((selection (car gpicker-mb-matches)))
