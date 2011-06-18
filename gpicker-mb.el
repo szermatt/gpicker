@@ -177,8 +177,8 @@ See `gpicker-mb-open'."
 
 Return a list of files to open, relative to PROJECT-DIR.
 
-This function is normally called indirectly by `gpicker-find-file',
-`gpicker-find-file-other-window' or
+This function is normally called indirectly by
+`gpicker-find-file', `gpicker-find-file-other-window' or
 `gpicker-find-file-other-frame' when Emacs is running inside of a
 terminal or when `*gpicker-force-nogui*' is t."
   (let ((process (start-process
