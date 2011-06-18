@@ -27,9 +27,46 @@
 ;; emacs is run inside of a terminal or on systems that don't support
 ;; GTK.
 ;;
+
+;;; Usage
+;;
+;; To start a gpicker-mb session, call `gpicker-find-file',
+;; `gpicker-find-file-other-window' or
+;; `gpicker-find-file-other-frame' from a terminal window or set
+;; `*gpicker-force-nogui*' to t to always use gpicker-mb instead of
+;; opening a GTK window.
+;;
+;; When it is started, gpicker-mb displays the most interesting matches
+;; in the minibuffer within { }. Gpicker-mb only displays up to
+;; `gpicker-md-max-result-count' results at a time. The file you're looking
+;; for very likely doesn't appear on the initial list.
+;;
+;; To restrict the search, type some parts of the file you're looking
+;; for. Gpicker-mb uses the exact same matching algorithm as the GTK
+;; version.
+;;
+;; Once gpicker-mb displays the file you're looking for in the minibuffer,
+;; type C-s or right to select the next match and C-r or left to select the
+;; previous match. Repeat until the file you want is the first on the list
+;; and press RET.
+;;
+;; This interface is very similar to iswitchb or IDO.
+;;
+
+;;; Customization
+;;
+;; To display more results when there are many matches, set
+;; `gpicker-mb-max-result-count'.
+;;
+;; To modify the map used during a gpicker-mb session, modify
+;; `gpicker-mb-map'.
+
+;;; Acknowledgements
+;;
 ;; Some of the minibuffer-handling code comes straight from iswitchb,
 ;; by Stephen Egler. It's been adapted to run with data coming from an
 ;; async process.
+;;
 
 ;;; Code
 
@@ -47,6 +84,8 @@
     (set-keymap-parent map minibuffer-local-map)
     (define-key map [(control s)] 'gpicker-mb-next-match)
     (define-key map [(control r)] 'gpicker-mb-prev-match)
+    (define-key map [(right)] 'gpicker-mb-next-match)
+    (define-key map [(left)] 'gpicker-mb-prev-match)
     (define-key map [(control m)] 'exit-minibuffer)
     (define-key map [(shift return)] 'gpicker-mb-open)
     (define-key map [(control x) ?4 (return)] 'gpicker-mb-open-other-window)
@@ -138,7 +177,10 @@ See `gpicker-mb-open'."
 
 Return a list of files to open, relative to PROJECT-DIR.
 
-Normally called by `gpicker-pick'."
+This function is normally called indirectly by `gpicker-find-file',
+`gpicker-find-file-other-window' or
+`gpicker-find-file-other-frame' when Emacs is running inside of a
+terminal or when `*gpicker-force-nogui*' is t."
   (let ((process (start-process
 		  "*gpicker*" nil
 		  (gpicker-mb-get-path) "-t" project-type project-dir)))
