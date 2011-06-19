@@ -38,7 +38,7 @@
 ;;
 ;; When it is started, gpicker-mb displays the most interesting matches
 ;; in the minibuffer within { }. Gpicker-mb only displays up to
-;; `gpicker-md-max-result-count' results at a time. The file you're looking
+;; `gpicker-mb-max-result-count' results at a time. The file you're looking
 ;; for very likely doesn't appear on the initial list.
 ;;
 ;; To restrict the search, type some parts of the file you're looking
@@ -78,7 +78,7 @@
   "Return a path to gpicker-daemon."
   (or *gpicker-mb-path* (concat *gpicker-path* "-daemon")))
 
-(defvar gpicker-md-max-result-count 8
+(defvar gpicker-mb-max-result-count 8
   "Maximum number of results displayed in the minibuffer")
 
 (defvar gpicker-mb-map
@@ -217,7 +217,7 @@ which should be the minibuffer."
   (gpicker-mb-set-text buffer "{...}")
   (setq gpicker-mb-matches nil)
   (tq-enqueue gpicker-mb-tq
-	      (format "?%d:%s\n" gpicker-md-max-result-count query) "\0\0\n"
+	      (format "?%d:%s\n" gpicker-mb-max-result-count query) "\0\0\n"
 	      (cons query buffer)
 	      #'gpicker-mb-pick-collect-result)
   ;; if the answers comes back immediately, display the
@@ -292,6 +292,8 @@ Should be called with the minibuffer as the current buffer."
       (dolist (filename (cdr gpicker-mb-matches))
 	(push "," text-list)
 	(push filename text-list))
+      (when (equal (length gpicker-mb-matches) gpicker-mb-max-result-count)
+	(push ",..." text-list))
       (push "}" text-list)
       (apply 'concat (nreverse text-list))))))
 
