@@ -12,7 +12,11 @@ COMMON = \
   timing.h \
   inline_qsort.h 
 
+if WITH_GUI
+
 bin_PROGRAMS = gpicker gpicker-simple gpicker-daemon
+man_MANS = gpicker.1 gpicker-simple.1
+
 gpicker_SOURCES = main.c \
  do_with_main_loop.h do_with_main_loop.c \
  simple_main.c \
@@ -22,16 +26,26 @@ gpicker_LDADD = @gtk2_LIBS@ @gthread_LIBS@ lib/libgnu.a
 gpicker_CFLAGS = @gtk2_CFLAGS@ @gthread_CFLAGS@
 AM_CPPFLAGS = -Ilib @EXTRA_CPPFLAGS@
 
-man_MANS = gpicker.1 gpicker-simple.1
-
-EXTRA_DIST = gpicker.el gpicker.vim IDEAS CodingStyle README.osx \
- Makefile.simple debian gpicker.1 gpicker-simple.1 m4/gnulib-cache.m4
-
 # _SOURCES is only to fool automake not to search for gpicker-simple.c
 # Real build rule is simple 'ln'
 gpicker_simple_SOURCES = simple_main.c
 gpicker-simple: gpicker
 	ln -f gpicker gpicker-simple
+
+
+else #WITH_GUI=no
+
+bin_PROGRAMS = gpicker-daemon gpicker-simple
+
+gpicker_simple_SOURCES = simple_main.c $(COMMON)
+gpicker_simple_LDADD = @glib2_LIBS@ lib/libgnu.a
+gpicker_simple_CFLAGS = @glib2_CFLAGS@ -DGPICKER_SIMPLE
+gpicker_simple_CPPFLAGS = -Ilib @EXTRA_CPPFLAGS@
+
+endif #WITH_GUI
+
+EXTRA_DIST = gpicker.el gpicker.vim IDEAS CodingStyle README.osx \
+ Makefile.simple debian gpicker.1 gpicker-simple.1 m4/gnulib-cache.m4
 
 gpicker_daemon_SOURCES = daemon_main.c \
  project_files.c project_files.h \

@@ -3,6 +3,7 @@
 #endif
 
 #include <assert.h>
+#include <dirent.h>
 #include <fcntl.h>
 #include <glib.h>
 #include <signal.h>

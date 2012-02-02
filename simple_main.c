@@ -96,7 +96,11 @@ void parse_options(int argc, char **argv)
         }
 }
 
+#ifdef GPICKER_SIMPLE
+int main(int argc, char **argv)
+#else
 int simple_main(int argc, char **argv)
+#endif
 {
         init_loading();
 
