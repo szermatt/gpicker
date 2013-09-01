@@ -726,18 +726,12 @@ void build_ui()
 	gtk_window_set_position(top_window, GTK_WIN_POS_CENTER);
 }
 
-extern
-int simple_main(int, char **);
-
 int main(int argc, char **argv)
 {
 	init_loading();
 	prepare_scorer();
 
 	char *gpicker = basename(xstrdup(argv[0]));
-	if (!strcmp(gpicker, "gpicker-simple"))
-		return simple_main(argc, argv);
-
 	timing_t tstart = start_timing();
 
 	g_thread_init(0);

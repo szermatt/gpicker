@@ -97,7 +97,7 @@ void parse_options(int argc, char **argv)
 	}
 }
 
-int simple_main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	init_loading();
 	prepare_scorer();

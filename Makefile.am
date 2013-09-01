@@ -1,27 +1,43 @@
 ACLOCAL_AMFLAGS = -I m4
 SUBDIRS = lib
-
-bin_PROGRAMS = gpicker gpicker-simple
-gpicker_SOURCES = main.c scorer.c filtration.c vector.c xmalloc.c \
- refcounted_str.c refcounted_str.h compiler.h \
- do_with_main_loop.h do_with_main_loop.c \
- loading.h loading.c \
- simple_main.c \
- filtration.h vector.h scorer.h xmalloc.h timing.h inline_qsort.h
-gpicker_LDADD = @gtk2_LIBS@ @gthread_LIBS@ lib/libgnu.a
-AM_CFLAGS = @gtk2_CFLAGS@ @gthread_CFLAGS@
 AM_CPPFLAGS = -Ilib @EXTRA_CPPFLAGS@
 
-man_MANS = gpicker.1 gpicker-simple.1
-
 EXTRA_DIST = gpicker.el gpicker.vim IDEAS CodingStyle README.osx \
- Makefile.simple debian gpicker.1 gpicker-simple.1 m4/gnulib-cache.m4 contrib/gpicker-script-example
+ Makefile.simple debian gpicker-simple.1 m4/gnulib-cache.m4 contrib/gpicker-script-example
 
-# _SOURCES is only to fool automake not to search for gpicker-simple.c
-# Real build rule is simple 'ln'
-gpicker_simple_SOURCES = simple_main.c
-gpicker-simple: gpicker
-	ln -f gpicker gpicker-simple
+COMMON_SOURCES = \
+  scorer.c scorer.h \
+  filtration.c  filtration.h \
+  vector.c vector.h \
+  xmalloc.c xmalloc.h \
+  refcounted_str.c refcounted_str.h \
+  loading.c loading.h \
+  compiler.h \
+  timing.h \
+  inline_qsort.h
+bin_PROGRAMS = gpicker-simple
+man_MANS = gpicker-simple.1
+
+### gpicker
+if HAVE_GTK
+
+bin_PROGRAMS += gpicker
+man_MANS += gpicker.1
+EXTRA_DIST += gpicker.1
+gpicker_SOURCES = main.c \
+ do_with_main_loop.h do_with_main_loop.c \
+ $(COMMON_SOURCES)
+gpicker_LDADD = @gtk2_LIBS@ @gthread_LIBS@ lib/libgnu.a
+gpicker_CFLAGS = @gtk2_CFLAGS@ @gthread_CFLAGS@
+
+endif # HAVE_GTK
+
+### gpicker-simple
+gpicker_simple_SOURCES = simple_main.c $(COMMON_SOURCES)
+gpicker_simple_LDADD = @glib2_LIBS@ lib/libgnu.a
+gpicker_simple_CFLAGS = @glib2_CFLAGS@ -DGPICKER_SIMPLE
+gpicker_simple_CPPFLAGS = -Ilib @EXTRA_CPPFLAGS@
+
 
 if HAVE_CHECK
 
