@@ -22,11 +22,11 @@ static gboolean disable_bzr;
 static gboolean disable_hg;
 
 GOptionEntry project_file_entries[] = {
-  {"project-type", 't', 0, G_OPTION_ARG_STRING, &project_type, 
+  {"project-type", 't', 0, G_OPTION_ARG_STRING, &project_type,
    "respect ignored files for given kind of VCS (default, git, bzr, hg, guess, mlocate)", 0},
-  {"disable-bzr", 0, 0, G_OPTION_ARG_NONE, &disable_bzr, 
+  {"disable-bzr", 0, 0, G_OPTION_ARG_NONE, &disable_bzr,
    "disable autodetection of Bazaar project type", 0},
-  {"disable-hg", 0, 0, G_OPTION_ARG_NONE, &disable_hg, 
+  {"disable-hg", 0, 0, G_OPTION_ARG_NONE, &disable_hg,
    "disable autodetection of Mercurial project type", 0},
   {0}
 };
@@ -139,7 +139,7 @@ void enter_project_dir(const char *project_dir)
   }
 }
 
-void project_files_init(const char *project_dir) 
+void project_files_init(const char *project_dir)
 {
         assert(!initialized);
 
@@ -172,7 +172,7 @@ void project_files_init(const char *project_dir)
                 }
                 initialized = TRUE;
                 return;
-        } 
+        }
 
         if (!project_type || !strcmp(project_type, "default")) {
                 char *find_command = getenv("GPICKER_FIND");
@@ -196,7 +196,7 @@ void project_files_init(const char *project_dir)
         initialized = TRUE;
 }
 
-void project_files_read(void) 
+void project_files_read(void)
 {
         assert(initialized);
 

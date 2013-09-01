@@ -14,7 +14,8 @@ static const char *parse_options(int argc, char **argv)
 {
         GError *error = 0;
         GOptionContext *context;
-        context = g_option_context_new("PROJECT-DIR-PATH - quickly pick a file from the project");
+        context = g_option_context_new(
+                "PROJECT-DIR-PATH - quickly pick a file from the project");
         g_option_context_add_main_entries(context, project_file_entries, 0);
 
         if (!g_option_context_parse(context, &argc, &argv, &error)) {
@@ -31,14 +32,14 @@ static const char *parse_options(int argc, char **argv)
         return argv[1];
 }
 
-static 
-char *stripws(char *line) 
+static
+char *stripws(char *line)
 {
         char *line_end;
-        while (*line == ' ' || *line == '\t') 
+        while (*line == ' ' || *line == '\t')
                 line++;
         for (line_end = &line[strlen(line) - 1];
-             *line_end == '\n' || *line_end == '\r' 
+             *line_end == '\n' || *line_end == '\r'
                      || *line_end == '\t' || *line_end == ' ';
              line_end--) {
                 *line_end = 0;
@@ -52,7 +53,7 @@ char *read_daemon_command(char *buffer, int buflen, int *ignored) {
         char *more;
         int flags;
         *ignored = 0;
-        flags = fcntl(0, F_GETFL, 0); 
+        flags = fcntl(0, F_GETFL, 0);
         fcntl(0, F_SETFL, flags & ~O_NONBLOCK);
         line = fgets(buffer, buflen, stdin);
         if (line == NULL)
@@ -68,14 +69,14 @@ char *read_daemon_command(char *buffer, int buflen, int *ignored) {
         abort(); /* should never be reached */
 }
 
-static inline 
+static inline
 void write_or_die(const char *buf, size_t count) {
         if (write(1, buf, count) <= 0) {
                 perror("write error");
                 exit(1);
         }
 }
-        
+
 static inline
 void write_etx() {
         /* mark the end of a query. */
@@ -83,7 +84,7 @@ void write_etx() {
         write_or_die(end, 3);
 }
 
-static 
+static
 void write_results(char *pattern, int maxcount) {
         struct filename *filenames = (struct filename *)files_vector.buffer;
         struct filter_result *results;
@@ -93,7 +94,7 @@ void write_results(char *pattern, int maxcount) {
         filter_files_sync(pattern);
         results = (struct filter_result *)filtered.buffer;
         result_count = filtered.used;
-        if (result_count > maxcount) 
+        if (result_count > maxcount)
                 result_count = maxcount;
         for (i = 0; i < result_count; i++) {
                 struct filename *filename = &filenames[results[i].index];
@@ -107,7 +108,7 @@ int daemon_loop(void)
         int runloop;
         char buffer[1024];
         ssize_t r;
-        
+
         runloop = 1;
         while (runloop) {
                 char *line;
@@ -126,7 +127,7 @@ int daemon_loop(void)
                         /* .: stop the daemon. */
                         runloop = 0;
                         break;
-                case '?': 
+                case '?':
                         /* ?<number>:<query> get up to <number> results. */
                         line += 1;
                         char *colon_p = strchr(line, ':');
@@ -137,7 +138,7 @@ int daemon_loop(void)
                         }
                         if (max_results <= 0) {
                                 fprintf(stderr,
-                                        "Invalid result count in '?%s'.", 
+                                        "Invalid result count in '?%s'.",
                                         stripws(line));
                                 break;
                         }
