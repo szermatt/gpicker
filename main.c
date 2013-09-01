@@ -53,6 +53,7 @@
 #include "loading.h"
 #include "do_with_main_loop.h"
 #include "project_files.h"
+#include "scorer.h"
 
 static GtkWindow *top_window;
 static GtkEntry *name_entry;
@@ -83,7 +84,7 @@ static void filter_tree_view_tail();
 static
 void filter_tree_view(char *pattern)
 {
-	filter_files(pattern, filter_tree_view_tail);
+        filter_files(pattern, filter_tree_view_tail);
 }
 
 static
@@ -92,239 +93,239 @@ char *applied_pattern;
 static
 void filter_tree_view_tail(char *pattern)
 {
-	GtkTreeIter iter;
-	timing_t start;
-	int i, n;
-	struct filter_result *results = (struct filter_result *)filtered.buffer;
+        GtkTreeIter iter;
+        timing_t start;
+        int i, n;
+        struct filter_result *results = (struct filter_result *)filtered.buffer;
 
-	if (applied_pattern)
-		free(applied_pattern);
-	applied_pattern = xstrdup(pattern);
+        if (applied_pattern)
+                free(applied_pattern);
+        applied_pattern = xstrdup(pattern);
 
-	start = start_timing();
+        start = start_timing();
 
-	g_object_ref(G_OBJECT(list_store));
-	gtk_tree_view_set_model(tree_view, 0);
+        g_object_ref(G_OBJECT(list_store));
+        gtk_tree_view_set_model(tree_view, 0);
 
-	gtk_list_store_clear(list_store);
+        gtk_list_store_clear(list_store);
 
-	finish_timing(start, "gtk_list_store_clear");
-	start = start_timing();
+        finish_timing(start, "gtk_list_store_clear");
+        start = start_timing();
 
-	n = filtered.used;
-	if (n > FILTER_LIMIT)
-		n = FILTER_LIMIT;
-	for (i=0; i<n; i++) {
-		gtk_list_store_append(list_store, &iter);
-		gtk_list_store_set(list_store, &iter,
-				   0, results[i].index,
-				   -1);
-	}
+        n = filtered.used;
+        if (n > FILTER_LIMIT)
+                n = FILTER_LIMIT;
+        for (i=0; i<n; i++) {
+                gtk_list_store_append(list_store, &iter);
+                gtk_list_store_set(list_store, &iter,
+                                   0, results[i].index,
+                                   -1);
+        }
 
-	finish_timing(start, "adding filtered data");
-	start = start_timing();
+        finish_timing(start, "adding filtered data");
+        start = start_timing();
 
-	gtk_tree_view_set_model(tree_view, GTK_TREE_MODEL(list_store));
-	g_object_unref(G_OBJECT(list_store));
+        gtk_tree_view_set_model(tree_view, GTK_TREE_MODEL(list_store));
+        g_object_unref(G_OBJECT(list_store));
 
-	finish_timing(start, "setting model back");
+        finish_timing(start, "setting model back");
 
-	{
-		GtkTreeSelection *sel = gtk_tree_view_get_selection(tree_view);
-		GtkTreePath *path = gtk_tree_path_new_from_indices(0,-1);
-		gtk_tree_selection_select_path(sel, path);
-		gtk_tree_path_free(path);
-	}
+        {
+                GtkTreeSelection *sel = gtk_tree_view_get_selection(tree_view);
+                GtkTreePath *path = gtk_tree_path_new_from_indices(0,-1);
+                gtk_tree_selection_select_path(sel, path);
+                gtk_tree_path_free(path);
+        }
 }
 
 static
 void cell_data_func(GtkTreeViewColumn *col,
-		    GtkCellRenderer *_renderer,
-		    GtkTreeModel *model,
-		    GtkTreeIter *iter,
-		    gpointer dummy)
+                    GtkCellRenderer *_renderer,
+                    GtkTreeModel *model,
+                    GtkTreeIter *iter,
+                    gpointer dummy)
 {
-	GtkCellRendererText *renderer = GTK_CELL_RENDERER_TEXT(_renderer);
-	int index;
-	char *text=0;
-	gtk_tree_model_get(model, iter, 0, &index, -1);
-	text = files[index].p;
-	if (text) {
-		const char *pattern = applied_pattern;
-		int patlen = strlen(pattern);
-		unsigned match[patlen];
-		int passes;
-		int i;
+        GtkCellRendererText *renderer = GTK_CELL_RENDERER_TEXT(_renderer);
+        int index;
+        char *text=0;
+        gtk_tree_model_get(model, iter, 0, &index, -1);
+        text = files[index].p;
+        if (text) {
+                const char *pattern = applied_pattern;
+                int patlen = strlen(pattern);
+                unsigned match[patlen];
+                int passes;
+                int i;
 
-		g_object_set(G_OBJECT(renderer),
-			     "text", text,
-			     NULL);
+                g_object_set(G_OBJECT(renderer),
+                             "text", text,
+                             NULL);
 
-		memset(match, -1, patlen*sizeof(match[0]));
-		passes = obtain_match(pattern, index, match);
-		if (!passes)
-			return;
+                memset(match, -1, patlen*sizeof(match[0]));
+                passes = obtain_match(pattern, index, match);
+                if (!passes)
+                        return;
 
-		PangoAttrList *list = pango_attr_list_new();
-		for (i=0;i<patlen;i++) {
-			unsigned match_pos = match[i];
-			if (match_pos == SCORER_MATCH_NONE)
-				continue;
-			PangoAttribute *attr = pango_attr_weight_new(PANGO_WEIGHT_BOLD);
-			attr->start_index = match_pos;
-			while (utf8_continuation_p(text[++match_pos]));
-			attr->end_index = match_pos;
-			pango_attr_list_insert(list, attr);
-		}
+                PangoAttrList *list = pango_attr_list_new();
+                for (i=0;i<patlen;i++) {
+                        unsigned match_pos = match[i];
+                        if (match_pos == SCORER_MATCH_NONE)
+                                continue;
+                        PangoAttribute *attr = pango_attr_weight_new(PANGO_WEIGHT_BOLD);
+                        attr->start_index = match_pos;
+                        while (utf8_continuation_p(text[++match_pos]));
+                        attr->end_index = match_pos;
+                        pango_attr_list_insert(list, attr);
+                }
 
-		g_object_set(G_OBJECT(renderer),
-			     "attributes", list,
-			     NULL);
-		pango_attr_list_unref(list);
-	}
+                g_object_set(G_OBJECT(renderer),
+                             "attributes", list,
+                             NULL);
+                pango_attr_list_unref(list);
+        }
 }
 
 static
 void setup_column(void)
 {
-	GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
-	GtkTreeViewColumn *col;
-	g_object_set(G_OBJECT(renderer),
-		     "ellipsize", align_left ? PANGO_ELLIPSIZE_END : PANGO_ELLIPSIZE_START,
-		     "alignment", align_left ? PANGO_ALIGN_LEFT : PANGO_ALIGN_RIGHT,
-		     NULL);
+        GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
+        GtkTreeViewColumn *col;
+        g_object_set(G_OBJECT(renderer),
+                     "ellipsize", align_left ? PANGO_ELLIPSIZE_END : PANGO_ELLIPSIZE_START,
+                     "alignment", align_left ? PANGO_ALIGN_LEFT : PANGO_ALIGN_RIGHT,
+                     NULL);
 
-	col = gtk_tree_view_column_new_with_attributes("filename", renderer, NULL);
+        col = gtk_tree_view_column_new_with_attributes("filename", renderer, NULL);
 
-	gtk_tree_view_column_set_cell_data_func(col, renderer, cell_data_func, 0, 0);
-	gtk_tree_view_column_set_sizing(col, GTK_TREE_VIEW_COLUMN_FIXED);
+        gtk_tree_view_column_set_cell_data_func(col, renderer, cell_data_func, 0, 0);
+        gtk_tree_view_column_set_sizing(col, GTK_TREE_VIEW_COLUMN_FIXED);
 
-	gtk_tree_view_append_column(tree_view, col);
+        gtk_tree_view_append_column(tree_view, col);
 }
 
 static
 void exit_program(void)
 {
-	program_exited = TRUE;
-	if (!gpicker_loading_completed) {
-		read_filenames_abort();
-		do_with_main_loop_quit(loading_process);
-	} else
-		gtk_main_quit();
+        program_exited = TRUE;
+        if (!gpicker_loading_completed) {
+                read_filenames_abort();
+                do_with_main_loop_quit(loading_process);
+        } else
+                gtk_main_quit();
 }
 
 static
 void selection_printer(gpointer data,
-		       gpointer _dummy)
+                       gpointer _dummy)
 {
-	static int did_output = 0;
-	GtkTreePath *path = data;
-	GtkTreeIter iter;
-	gint idx;
+        static int did_output = 0;
+        GtkTreePath *path = data;
+        GtkTreeIter iter;
+        gint idx;
 
-	if (did_output)
-		putchar(name_separator[0]);
-	did_output = 1;
+        if (did_output)
+                putchar(name_separator[0]);
+        did_output = 1;
 
-	gtk_tree_model_get_iter(GTK_TREE_MODEL(list_store), &iter, path);
-	gtk_tree_model_get(GTK_TREE_MODEL(list_store), &iter, 0, &idx, -1);
+        gtk_tree_model_get_iter(GTK_TREE_MODEL(list_store), &iter, path);
+        gtk_tree_model_get(GTK_TREE_MODEL(list_store), &iter, 0, &idx, -1);
 
-	if (output_index) {
-		printf("%d", idx);
-	} else {
-		fputs(files[idx].p, stdout);
-	}
+        if (output_index) {
+                printf("%d", idx);
+        } else {
+                fputs(files[idx].p, stdout);
+        }
 
-	gtk_tree_path_free(path);
+        gtk_tree_path_free(path);
 }
 
 static
 void print_selection(void)
 {
-	GtkTreeSelection *sel = gtk_tree_view_get_selection(tree_view);
-	GList *list;
+        GtkTreeSelection *sel = gtk_tree_view_get_selection(tree_view);
+        GList *list;
 
-	list = gtk_tree_selection_get_selected_rows(sel, 0);
-	if (!list) {
-		if (print_pattern)
-			fputs(pattern_text, stdout);
-		return;
-	}
+        list = gtk_tree_selection_get_selected_rows(sel, 0);
+        if (!list) {
+                if (print_pattern)
+                        fputs(pattern_text, stdout);
+                return;
+        }
 
-	g_list_foreach(list, selection_printer, NULL);
-	g_list_free(list);
+        g_list_foreach(list, selection_printer, NULL);
+        g_list_free(list);
 }
 
 static
 void choice_made(void)
 {
-	print_selection();
-	exit_program();
+        print_selection();
+        exit_program();
 }
 
 static
 gboolean on_top_window_keypress(GtkWidget *_dummy,
-				GdkEventKey *event,
-				gpointer _dummy2)
+                                GdkEventKey *event,
+                                gpointer _dummy2)
 {
-	if (event->keyval == GDK_Escape) {
-		exit_program();
-		return TRUE;
-	}
-	return FALSE;
+        if (event->keyval == GDK_Escape) {
+                exit_program();
+                return TRUE;
+        }
+        return FALSE;
 }
 
 static
 void on_entry_changed(GtkEditable *editable,
-		      gpointer data)
+                      gpointer data)
 {
-	if (!gpicker_loading_completed)
-		return;
+        if (!gpicker_loading_completed)
+                return;
 
-	timing_t start = start_timing();
+        timing_t start = start_timing();
 
-	free(pattern_text);
-	pattern_text = g_strdup(gtk_entry_get_text(GTK_ENTRY(editable)));
-	filter_tree_view(pattern_text);
+        free(pattern_text);
+        pattern_text = g_strdup(gtk_entry_get_text(GTK_ENTRY(editable)));
+        filter_tree_view(pattern_text);
 
-	finish_timing(start, "filtration");
+        finish_timing(start, "filtration");
 }
 
 static
 void set_window_title(void)
 {
-	char work_dir[PATH_MAX];
-	gchar *title;
+        char work_dir[PATH_MAX];
+        gchar *title;
 
-	if (read_stdin) {
-		gtk_window_set_title(top_window, "pick something");
-		return;
-	}
+        if (read_stdin) {
+                gtk_window_set_title(top_window, "pick something");
+                return;
+        }
 
-	if (!getcwd(work_dir, sizeof(work_dir)) || !work_dir[0])
-		return;
+        if (!getcwd(work_dir, sizeof(work_dir)) || !work_dir[0])
+                return;
 
-	title = g_strdup_printf("%s - pick a file", work_dir);
-	gtk_window_set_title(top_window, title);
-	free(title);
+        title = g_strdup_printf("%s - pick a file", work_dir);
+        gtk_window_set_title(top_window, title);
+        free(title);
 }
 
 static
 gboolean async_load_callback(void *_dummy)
 {
-	if (gpicker_loading_completed)
-		return FALSE;
+        if (gpicker_loading_completed)
+                return FALSE;
 
-	char *title = g_strdup_printf("Loading filelist (%d bytes) - gpicker", gpicker_bytes_readen);
-	gtk_window_set_title(top_window, title);
-	free(title);
+        char *title = g_strdup_printf("Loading filelist (%d bytes) - gpicker", gpicker_bytes_readen);
+        gtk_window_set_title(top_window, title);
+        free(title);
 
-	return TRUE;
+        return TRUE;
 }
 
 static
 gpointer setup_filenames_core(gpointer _dummy,
-			      struct do_with_main_loop_process *p)
+                              struct do_with_main_loop_process *p)
 {
         if (read_stdin) 
         {
@@ -339,219 +340,219 @@ gpointer setup_filenames_core(gpointer _dummy,
         }
         if (!dont_sort && !dont_sort_initial)
           read_filenames_sort();
-	return 0;
+        return 0;
 }
 
 static
 void setup_filenames(void)
 {
-	g_timeout_add(250, async_load_callback, 0);
-	gtk_widget_set_sensitive(GTK_WIDGET(tree_view), FALSE);
+        g_timeout_add(250, async_load_callback, 0);
+        gtk_widget_set_sensitive(GTK_WIDGET(tree_view), FALSE);
 
-	do_with_main_loop((do_with_main_loop_fn)setup_filenames_core, 0, &loading_process);
-	gpicker_loading_completed = TRUE;
-	do_with_main_loop_close(loading_process);
+        do_with_main_loop((do_with_main_loop_fn)setup_filenames_core, 0, &loading_process);
+        gpicker_loading_completed = TRUE;
+        do_with_main_loop_close(loading_process);
 
-	gtk_widget_set_sensitive(GTK_WIDGET(tree_view), TRUE);
-	set_window_title();
+        gtk_widget_set_sensitive(GTK_WIDGET(tree_view), TRUE);
+        set_window_title();
 }
 
 static
 void setup_data(void)
 {
-	list_store = gtk_list_store_new(1, G_TYPE_INT);
-	gtk_tree_view_set_model(tree_view, GTK_TREE_MODEL(list_store));
+        list_store = gtk_list_store_new(1, G_TYPE_INT);
+        gtk_tree_view_set_model(tree_view, GTK_TREE_MODEL(list_store));
 
-	GtkEditable *editable = GTK_EDITABLE(name_entry);
+        GtkEditable *editable = GTK_EDITABLE(name_entry);
 
-	if (init_filter) {
-		int len = strlen(init_filter);
-		gtk_entry_set_text(name_entry, init_filter);
-		gtk_editable_set_position(editable, len);
-		gtk_editable_select_region(editable, 0, len);
-	}
+        if (init_filter) {
+                int len = strlen(init_filter);
+                gtk_entry_set_text(name_entry, init_filter);
+                gtk_editable_set_position(editable, len);
+                gtk_editable_select_region(editable, 0, len);
+        }
 
-	setup_filenames();
-	setup_column();
+        setup_filenames();
+        setup_column();
 
-	on_entry_changed(editable, 0);
+        on_entry_changed(editable, 0);
 }
 
 static
 gboolean key_events_delegator(GtkWidget *w, GdkEventKey *e, gpointer dummy)
 {
-	gint sel_start, sel_end;
-	gboolean had_selection;
-	gint old_cursor_pos;
-	gboolean rv;
+        gint sel_start, sel_end;
+        gboolean had_selection;
+        gint old_cursor_pos;
+        gboolean rv;
 
-	had_selection = gtk_editable_get_selection_bounds(GTK_EDITABLE(name_entry),
-							  &sel_start, &sel_end);
-	old_cursor_pos = gtk_editable_get_position(GTK_EDITABLE(name_entry));
+        had_selection = gtk_editable_get_selection_bounds(GTK_EDITABLE(name_entry),
+                                                          &sel_start, &sel_end);
+        old_cursor_pos = gtk_editable_get_position(GTK_EDITABLE(name_entry));
 
-	g_object_set(G_OBJECT(tree_view), "can-focus", TRUE, NULL);
-	gtk_widget_grab_focus(GTK_WIDGET(tree_view));
-	rv = gtk_widget_event(GTK_WIDGET(tree_view), (GdkEvent *)e);
-	gtk_widget_grab_focus(GTK_WIDGET(name_entry));
-	g_object_set(G_OBJECT(tree_view), "can-focus", FALSE, NULL);
+        g_object_set(G_OBJECT(tree_view), "can-focus", TRUE, NULL);
+        gtk_widget_grab_focus(GTK_WIDGET(tree_view));
+        rv = gtk_widget_event(GTK_WIDGET(tree_view), (GdkEvent *)e);
+        gtk_widget_grab_focus(GTK_WIDGET(name_entry));
+        g_object_set(G_OBJECT(tree_view), "can-focus", FALSE, NULL);
 
-	gtk_editable_set_position(GTK_EDITABLE(name_entry), old_cursor_pos);
-	if (had_selection)
-		gtk_editable_select_region(GTK_EDITABLE(name_entry), sel_start, sel_end);
-	else
-		gtk_editable_select_region(GTK_EDITABLE(name_entry), old_cursor_pos, old_cursor_pos);
+        gtk_editable_set_position(GTK_EDITABLE(name_entry), old_cursor_pos);
+        if (had_selection)
+                gtk_editable_select_region(GTK_EDITABLE(name_entry), sel_start, sel_end);
+        else
+                gtk_editable_select_region(GTK_EDITABLE(name_entry), old_cursor_pos, old_cursor_pos);
 
-	return rv;
+        return rv;
 }
 
 static
 void setup_signals(void)
 {
-	g_signal_connect(top_window, "destroy", G_CALLBACK(exit_program), 0);
-	g_signal_connect(top_window, "key-press-event", G_CALLBACK(on_top_window_keypress), 0);
-	g_signal_connect(name_entry, "activate", G_CALLBACK(choice_made), 0);
-	g_signal_connect(tree_view, "row-activated", G_CALLBACK(choice_made), 0);
-	g_signal_connect(name_entry, "changed", G_CALLBACK(on_entry_changed), 0);
+        g_signal_connect(top_window, "destroy", G_CALLBACK(exit_program), 0);
+        g_signal_connect(top_window, "key-press-event", G_CALLBACK(on_top_window_keypress), 0);
+        g_signal_connect(name_entry, "activate", G_CALLBACK(choice_made), 0);
+        g_signal_connect(tree_view, "row-activated", G_CALLBACK(choice_made), 0);
+        g_signal_connect(name_entry, "changed", G_CALLBACK(on_entry_changed), 0);
 
-	g_object_set(G_OBJECT(tree_view), "can-focus", FALSE, NULL);
-	g_signal_connect_after(name_entry, "key-press-event", G_CALLBACK(key_events_delegator), 0);
-	g_signal_connect_after(name_entry, "key-release-event", G_CALLBACK(key_events_delegator), 0);
+        g_object_set(G_OBJECT(tree_view), "can-focus", FALSE, NULL);
+        g_signal_connect_after(name_entry, "key-press-event", G_CALLBACK(key_events_delegator), 0);
+        g_signal_connect_after(name_entry, "key-release-event", G_CALLBACK(key_events_delegator), 0);
 }
 
 static
 GOptionEntry entries[] = {
-	{"version", 0, 0, G_OPTION_ARG_NONE, &show_version, "show version", 0},
-	{"name-separator", 'n', 0, G_OPTION_ARG_STRING, &name_separator, "separator of filenames from stdin (\\0 is default)", 0},
-	{"dir-separator", 'd', 0, G_OPTION_ARG_STRING, &dir_separator, "separator of directory names from stdin (/ is default)", 0},
-	{"eat-prefix", 0, 0, G_OPTION_ARG_STRING, &eat_prefix, "eat this prefix from names (./ is default)", 0},
-	{"multiselect", 'm', 0, G_OPTION_ARG_NONE, &multiselect, "enable multiselect", 0},
-	{"left-align", 'l', 0, G_OPTION_ARG_NONE, &align_left, "left align everything (default is right-align)", 0},
-	{"print-pattern", 'p', 0, G_OPTION_ARG_NONE, &print_pattern, "print pattern if nothing matched (default is false)", 0},
-	{"dont-sort", 'S', 0, G_OPTION_ARG_NONE, &dont_sort_initial, "dont sort result list", 0},
-	{"init-filter", 'i', 0, G_OPTION_ARG_STRING, &init_filter, "initial filter value", 0},
-	{"load-stdin-too", 0, 0, G_OPTION_ARG_NONE, &load_stdin_too, "read additional filenames from stdin", 0},
-	{"output-index", 'I', 0, G_OPTION_ARG_NONE, &output_index, "print selection index instead of value (implies -S)", 0},
-	{"ignore-positions", 'P', 0, G_OPTION_ARG_NONE, &ignore_positions, "ignore match position for sorting", 0},
-	{0}
+        {"version", 0, 0, G_OPTION_ARG_NONE, &show_version, "show version", 0},
+        {"name-separator", 'n', 0, G_OPTION_ARG_STRING, &name_separator, "separator of filenames from stdin (\\0 is default)", 0},
+        {"dir-separator", 'd', 0, G_OPTION_ARG_STRING, &dir_separator, "separator of directory names from stdin (/ is default)", 0},
+        {"eat-prefix", 0, 0, G_OPTION_ARG_STRING, &eat_prefix, "eat this prefix from names (./ is default)", 0},
+        {"multiselect", 'm', 0, G_OPTION_ARG_NONE, &multiselect, "enable multiselect", 0},
+        {"left-align", 'l', 0, G_OPTION_ARG_NONE, &align_left, "left align everything (default is right-align)", 0},
+        {"print-pattern", 'p', 0, G_OPTION_ARG_NONE, &print_pattern, "print pattern if nothing matched (default is false)", 0},
+        {"dont-sort", 'S', 0, G_OPTION_ARG_NONE, &dont_sort_initial, "dont sort result list", 0},
+        {"init-filter", 'i', 0, G_OPTION_ARG_STRING, &init_filter, "initial filter value", 0},
+        {"load-stdin-too", 0, 0, G_OPTION_ARG_NONE, &load_stdin_too, "read additional filenames from stdin", 0},
+        {"output-index", 'I', 0, G_OPTION_ARG_NONE, &output_index, "print selection index instead of value (implies -S)", 0},
+        {"ignore-positions", 'P', 0, G_OPTION_ARG_NONE, &ignore_positions, "ignore match position for sorting", 0},
+        {0}
 };
 
 static
 void process_separator(char **separator_place, char *name, char *def)
 {
-	char *separator = *separator_place;
-	if (separator) {
-		if (!read_stdin)
-			fprintf(stderr, "Warning: --%s with usual project is useless\n", name);
+        char *separator = *separator_place;
+        if (separator) {
+                if (!read_stdin)
+                        fprintf(stderr, "Warning: --%s with usual project is useless\n", name);
 
-		if (!strcmp(separator, "\\n"))
-			separator = "\n";
-		if (!strcmp(separator, "\\r"))
-			separator = "\r";
-		else if (!strcmp(separator, "\\0"))
-			separator = "";
-		else if (!strcmp(separator, "\\t"))
-			separator = "\t";
+                if (!strcmp(separator, "\\n"))
+                        separator = "\n";
+                if (!strcmp(separator, "\\r"))
+                        separator = "\r";
+                else if (!strcmp(separator, "\\0"))
+                        separator = "";
+                else if (!strcmp(separator, "\\t"))
+                        separator = "\t";
 
-		if (strlen(separator) > 1) {
-			fprintf(stderr, "%s of more than one character is not supported\n", name);
-			exit(1);
-		}
-	} else
-		separator = def;
+                if (strlen(separator) > 1) {
+                        fprintf(stderr, "%s of more than one character is not supported\n", name);
+                        exit(1);
+                }
+        } else
+                separator = def;
 
-	*separator_place = separator;
+        *separator_place = separator;
 }
 
 static
 void parse_options(int argc, char **argv)
 {
-	GError *error = 0;
-	GOptionContext *context;
-	context = g_option_context_new("PROJECT-DIR-PATH - quickly pick a file from the project");
-	g_option_context_add_main_entries(context, entries, 0);
-	g_option_context_add_main_entries(context, project_file_entries, 0);
-	g_option_context_add_group(context, gtk_get_option_group(TRUE));
+        GError *error = 0;
+        GOptionContext *context;
+        context = g_option_context_new("PROJECT-DIR-PATH - quickly pick a file from the project");
+        g_option_context_add_main_entries(context, entries, 0);
+        g_option_context_add_main_entries(context, project_file_entries, 0);
+        g_option_context_add_group(context, gtk_get_option_group(TRUE));
 
-	if (!g_option_context_parse(context, &argc, &argv, &error)) {
-		fprintf(stderr, "option parsing failed: %s\n", error->message);
-		exit(1);
-	}
+        if (!g_option_context_parse(context, &argc, &argv, &error)) {
+                fprintf(stderr, "option parsing failed: %s\n", error->message);
+                exit(1);
+        }
 
-	if (output_index)
-		dont_sort_initial = 1;
+        if (output_index)
+                dont_sort_initial = 1;
 
-	if (show_version) {
-		fprintf(stdout, "%s %s\n", PACKAGE_NAME, VERSION);
-		exit(0);
-	}
-	if (argc < 2) {
-		fprintf(stderr, "I need a project path\n");
-		fputs(g_option_context_get_help(context, TRUE, NULL), stderr);
-		exit(1);
-	}
+        if (show_version) {
+                fprintf(stdout, "%s %s\n", PACKAGE_NAME, VERSION);
+                exit(0);
+        }
+        if (argc < 2) {
+                fprintf(stderr, "I need a project path\n");
+                fputs(g_option_context_get_help(context, TRUE, NULL), stderr);
+                exit(1);
+        }
 
-	project_dir = argv[1];
-	read_stdin = !strcmp(project_dir, "-");
+        project_dir = argv[1];
+        read_stdin = !strcmp(project_dir, "-");
 
-	process_separator(&name_separator, "name-separator", "");
-	process_separator(&dir_separator, "dir-separator", "/");
-	filter_dir_separator = dir_separator[0];
+        process_separator(&name_separator, "name-separator", "");
+        process_separator(&dir_separator, "dir-separator", "/");
+        filter_dir_separator = dir_separator[0];
 }
 
 static
 void get_monitor_dimensions(unsigned *width, unsigned *height)
 {
-	GdkScreen *screen = gdk_display_get_default_screen(gdk_display_get_default());
-	int i = gdk_screen_get_n_monitors(screen);
-	unsigned w = INT_MAX, h = INT_MAX;
-	while (--i >= 0) {
-		GdkRectangle r;
-		gdk_screen_get_monitor_geometry(screen, i, &r);
-		w = (w > r.width) ? r.width : w;
-		h = (h > r.height) ? r.height : h;
-	}
-	*width = w;
-	*height = h;
+        GdkScreen *screen = gdk_display_get_default_screen(gdk_display_get_default());
+        int i = gdk_screen_get_n_monitors(screen);
+        unsigned w = INT_MAX, h = INT_MAX;
+        while (--i >= 0) {
+                GdkRectangle r;
+                gdk_screen_get_monitor_geometry(screen, i, &r);
+                w = (w > r.width) ? r.width : w;
+                h = (h > r.height) ? r.height : h;
+        }
+        *width = w;
+        *height = h;
 }
 
 static
 void build_ui()
 {
-	GtkBox *vbox;
-	GtkScrolledWindow *scrolled_window;
+        GtkBox *vbox;
+        GtkScrolledWindow *scrolled_window;
 
-	top_window = GTK_WINDOW(gtk_window_new(GTK_WINDOW_TOPLEVEL));
-	gtk_window_set_type_hint(top_window, GDK_WINDOW_TYPE_HINT_DIALOG);
-	gtk_window_set_title(top_window, "Loading filelist - gpicker");
+        top_window = GTK_WINDOW(gtk_window_new(GTK_WINDOW_TOPLEVEL));
+        gtk_window_set_type_hint(top_window, GDK_WINDOW_TYPE_HINT_DIALOG);
+        gtk_window_set_title(top_window, "Loading filelist - gpicker");
 
-	vbox = GTK_BOX(gtk_vbox_new(FALSE, 3));
-	gtk_container_set_border_width(GTK_CONTAINER(vbox), 3);
-	gtk_container_add(GTK_CONTAINER(top_window), GTK_WIDGET(vbox));
+        vbox = GTK_BOX(gtk_vbox_new(FALSE, 3));
+        gtk_container_set_border_width(GTK_CONTAINER(vbox), 3);
+        gtk_container_add(GTK_CONTAINER(top_window), GTK_WIDGET(vbox));
 
-	name_entry = GTK_ENTRY(gtk_entry_new());
-	gtk_entry_set_alignment(name_entry, align_left ? 0.0 : 1.0);
-	gtk_box_pack_start(GTK_BOX(vbox), GTK_WIDGET(name_entry),
-			   FALSE, TRUE, 0);
+        name_entry = GTK_ENTRY(gtk_entry_new());
+        gtk_entry_set_alignment(name_entry, align_left ? 0.0 : 1.0);
+        gtk_box_pack_start(GTK_BOX(vbox), GTK_WIDGET(name_entry),
+                           FALSE, TRUE, 0);
 
-	scrolled_window = GTK_SCROLLED_WINDOW(gtk_scrolled_window_new(0, 0));
-	gtk_scrolled_window_set_policy(scrolled_window,
-				       GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-	gtk_box_pack_start(GTK_BOX(vbox), GTK_WIDGET(scrolled_window),
-			   TRUE, TRUE, 0);
+        scrolled_window = GTK_SCROLLED_WINDOW(gtk_scrolled_window_new(0, 0));
+        gtk_scrolled_window_set_policy(scrolled_window,
+                                       GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+        gtk_box_pack_start(GTK_BOX(vbox), GTK_WIDGET(scrolled_window),
+                           TRUE, TRUE, 0);
 
-	tree_view = GTK_TREE_VIEW(gtk_tree_view_new());
-	gtk_tree_view_set_headers_visible(tree_view, FALSE);
+        tree_view = GTK_TREE_VIEW(gtk_tree_view_new());
+        gtk_tree_view_set_headers_visible(tree_view, FALSE);
 
-	gtk_tree_view_set_enable_search(tree_view, FALSE);
-	gtk_tree_view_set_fixed_height_mode(tree_view, TRUE);
-	gtk_tree_view_set_show_expanders(tree_view, FALSE);
-	gtk_container_add(GTK_CONTAINER(scrolled_window), GTK_WIDGET(tree_view));
+        gtk_tree_view_set_enable_search(tree_view, FALSE);
+        gtk_tree_view_set_fixed_height_mode(tree_view, TRUE);
+        gtk_tree_view_set_show_expanders(tree_view, FALSE);
+        gtk_container_add(GTK_CONTAINER(scrolled_window), GTK_WIDGET(tree_view));
 
-	unsigned display_width, display_height;
-	get_monitor_dimensions(&display_width, &display_height);
-	gtk_window_set_default_size(top_window, display_width/2, display_height/2);
+        unsigned display_width, display_height;
+        get_monitor_dimensions(&display_width, &display_height);
+        gtk_window_set_default_size(top_window, display_width/2, display_height/2);
 
-	gtk_window_set_position(top_window, GTK_WIN_POS_CENTER);
+        gtk_window_set_position(top_window, GTK_WIN_POS_CENTER);
 }
 
 extern
@@ -559,73 +560,74 @@ int simple_main(int, char **);
 
 int main(int argc, char **argv)
 {
-	init_loading();
+        init_loading();
+        prepare_scorer();
 
-	char *gpicker = basename(xstrdup(argv[0]));
-	if (!strcmp(gpicker, "gpicker-simple"))
-		return simple_main(argc, argv);
+        char *gpicker = basename(xstrdup(argv[0]));
+        if (!strcmp(gpicker, "gpicker-simple"))
+                return simple_main(argc, argv);
 
-	timing_t tstart = start_timing();
+        timing_t tstart = start_timing();
 
-	g_thread_init(0);
-	parse_options(argc, argv); /* inits GTK+ too */
+        g_thread_init(0);
+        parse_options(argc, argv); /* inits GTK+ too */
 
-	finish_timing(tstart, "gtk initialization");
-	tstart = start_timing();
+        finish_timing(tstart, "gtk initialization");
+        tstart = start_timing();
 
-	build_ui();
+        build_ui();
 
-	finish_timing(tstart, "UI initialization");
-	tstart = start_timing();
+        finish_timing(tstart, "UI initialization");
+        tstart = start_timing();
 
-	gtk_widget_show_all(GTK_WIDGET(top_window));
+        gtk_widget_show_all(GTK_WIDGET(top_window));
 
 #ifdef WITH_GDK_X11
-	// force our popup to be recent enough to display on top
-	GdkWindow *gdk_win = GTK_WIDGET(top_window)->window;
-	gdk_x11_window_set_user_time(gdk_win, gdk_x11_get_server_time(gdk_win));
+        // force our popup to be recent enough to display on top
+        GdkWindow *gdk_win = GTK_WIDGET(top_window)->window;
+        gdk_x11_window_set_user_time(gdk_win, gdk_x11_get_server_time(gdk_win));
 #endif
-	gdk_window_set_cursor(GTK_WIDGET(top_window)->window, gdk_cursor_new(GDK_WATCH));
+        gdk_window_set_cursor(GTK_WIDGET(top_window)->window, gdk_cursor_new(GDK_WATCH));
 
 #if !defined(__APPLE__)
-	// OSX may benefit from this too, but I cannot test it yet.
-	while (gtk_events_pending())
-		gtk_main_iteration();
+        // OSX may benefit from this too, but I cannot test it yet.
+        while (gtk_events_pending())
+                gtk_main_iteration();
 #endif
 
 #if defined(__APPLE__) && defined(__MACH__)
-	NSWindow *nswin = gdk_quartz_window_get_nswindow(GTK_WIDGET(top_window)->window);
-	[nswin center];
+        NSWindow *nswin = gdk_quartz_window_get_nswindow(GTK_WIDGET(top_window)->window);
+        [nswin center];
 
-	[NSApp activateIgnoringOtherApps:YES];
+        [NSApp activateIgnoringOtherApps:YES];
 #endif
 
-	finish_timing(tstart, "initial show");
-	tstart = start_timing();
+        finish_timing(tstart, "initial show");
+        tstart = start_timing();
 
-	setup_signals();
+        setup_signals();
 
-	finish_timing(tstart, "setup_signals");
-	tstart = start_timing();
+        finish_timing(tstart, "setup_signals");
+        tstart = start_timing();
 
-	setup_data();
+        setup_data();
 
-	if (multiselect) {
-		gtk_tree_selection_set_mode(gtk_tree_view_get_selection(tree_view),
-					    GTK_SELECTION_MULTIPLE);
-	}
+        if (multiselect) {
+                gtk_tree_selection_set_mode(gtk_tree_view_get_selection(tree_view),
+                                            GTK_SELECTION_MULTIPLE);
+        }
 
-	gdk_window_set_cursor(GTK_WIDGET(top_window)->window, 0);
+        gdk_window_set_cursor(GTK_WIDGET(top_window)->window, 0);
 
-	if (!gtk_widget_is_focus(GTK_WIDGET(name_entry)))
-		gtk_widget_grab_focus(GTK_WIDGET(name_entry));
+        if (!gtk_widget_is_focus(GTK_WIDGET(name_entry)))
+                gtk_widget_grab_focus(GTK_WIDGET(name_entry));
 
-	finish_timing(tstart, "setup_data");
+        finish_timing(tstart, "setup_data");
 
-	if (!program_exited)
-		gtk_main();
+        if (!program_exited)
+                gtk_main();
 
-	uninit_filter();
+        uninit_filter();
 
-	return 0;
+        return 0;
 }

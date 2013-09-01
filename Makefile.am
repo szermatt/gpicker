@@ -12,10 +12,13 @@ COMMON = \
   timing.h \
   inline_qsort.h 
 
+man_MANS = gpicker.1 gpicker-simple.1
+EXTRA_DIST = gpicker.el gpicker.vim IDEAS CodingStyle README.osx \
+ Makefile.simple debian gpicker.1 gpicker-simple.1 m4/gnulib-cache.m4 contrib/gpicker-script-example
+
 if WITH_GUI
 
 bin_PROGRAMS = gpicker gpicker-simple gpicker-daemon
-man_MANS = gpicker.1 gpicker-simple.1
 
 gpicker_SOURCES = main.c \
  do_with_main_loop.h do_with_main_loop.c \

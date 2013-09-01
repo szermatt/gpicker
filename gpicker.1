@@ -37,7 +37,7 @@ environment variable.
 is typically used from programmer's editors or IDEs. VIM and Emacs
 integration is included in
 .B gpicker
-package.
+package. See gpicker.el and gpicker.vim correspondingly.
 There's also NetBeans plugin at
 .B http://github.com/avsej/gpicker-netbeans
 and gedit plugin at
@@ -60,7 +60,27 @@ show version
 .TP
 .B \-t, \-\-project\-type
 respect ignored files for given kind of VCS (default, git, bzr, hg,
-guess). mlocate project type is used for loading file list from mlocate database.
+guess, script). mlocate project type is used for loading file list
+from mlocate database.
+
+Type
+.B script
+will use
+.B .gpicker-script
+script located in project dir to read all relevant filenames. Script
+must separate entries with zero character. It will be run with project
+directory as current directory and should normally output relative
+path. Not however that gpicker doesn't care if items output from
+script are files and do exist.
+
+Type
+.B guess
+will try to guess project type based on presence of directories and
+files (such as
+.B .gpicker-script
+or
+.B .git
+).
 .TP
 .B \-\-disable\-bzr
 disable autodetection of Bazaar project type

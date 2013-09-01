@@ -1,0 +1,25 @@
+#!/usr/bin/ruby
+
+Dir.chdir(File.dirname(__FILE__))
+
+dirs = Dir["*"].select {|item| File.directory?(item)}
+
+dirs.delete("ns_server")
+dirs << "../ns_server"
+
+dirs.each do |d|
+  Dir.chdir(d) do
+    cmd = if File.directory?(".git")
+            "git ls-files --exclude-standard -c -o -z ."
+          else
+            "find . '!' -wholename '*.git/*' -a '!' -wholename '*.hg/*' -a '!' -wholename '*.svn/*' -a '!' -wholename '*.bzr/*' -a '!' -wholename '*CVS/*' -type f -follow -print0"
+          end
+    IO.popen(cmd, "r") do |r|
+      r.each_line("\0") do |l|
+        print d
+        print "/"
+        print l
+      end
+    end
+  end
+end

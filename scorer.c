@@ -44,18 +44,40 @@ void ____empty_printf(char *format, ...)
 #define dprintf(...) ____empty_printf(__VA_ARGS__)
 #endif
 
+static
+int delimiter_p_full(char ch)
+{
+	return (ch == '.' || ch == '_' || ch == '/' || ch == '*' || ch == ' ' || ch == '\'' || ch == '"');
+}
+
+static
+char delimiter_table[256];
+
+static
+char tolower_table[256];
+
+void prepare_scorer(void)
+{
+	int i;
+	for (i = 0; i < 256; i++) {
+		char delimiter = delimiter_p_full(i);
+		delimiter_table[i] = delimiter;
+		tolower_table[i] = tolower(i);
+		if (i == '-')
+			tolower_table[i] = '_';
+	}
+}
+
 static inline
 int delimiter_p(char ch)
 {
-	return (ch == '.' || ch == '_' || ch == '/' || ch == '*' || ch == ' ' || ch == '\'' || ch == '"');
+	return delimiter_table[ch];
 }
 
 static inline
 char normalize_char(char ch, unsigned *is_delimiter)
 {
-	ch = tolower(ch);
-	if (ch == '-')
-		ch = '_';
+	ch = tolower_table[ch];
 	if (is_delimiter)
 		*is_delimiter = delimiter_p(ch);
 	return ch;
@@ -186,14 +208,12 @@ int score_string_prepared_inline(const unsigned pat_length,
 
 	memset(state, -1, sizeof(state));
 
-	previous_delimiter = 0;
+	previous_delimiter = 1;
 
 	for (i=0; i<string_length; i++) {
 		char ch = string[i];
 		unsigned max_k;
-		unsigned at_word_start = (i == 0);
-		at_word_start = at_word_start || ('A' <= ch && ch <= 'Z');
-		at_word_start = at_word_start || previous_delimiter;
+		unsigned at_word_start = previous_delimiter || ('A' <= ch && ch <= 'Z');
 		ch = normalize_char(ch, &previous_delimiter);
 		if (ch == translated_pattern[0]) {
 			int amount = at_word_start ? PROPER_WORD_START : 0;

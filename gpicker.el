@@ -42,13 +42,25 @@
 ;;   (global-set-key [?\C-x ?4 8388710] 'gpicker-find-file-other-window)
 ;;   (global-set-key [?\C-x ?5 8388710] 'gpicker-find-file-other-frame)
 ;;
+;; or
+;;
+;;   (global-set-key (kbd "s-f") 'gpicker-find-file)
+;;   (global-set-key (kbd "C-x 4 s-f") 'gpicker-find-file-other-window)
+;;   (global-set-key (kbd "C-x 5 s-f") 'gpicker-find-file-other-frame)
+;;
 ;; On most keyboards Super is a key with flag between Ctrl and Alt. On
 ;; mac keyboards it's Command key.
+;;
+;; Also check out gpicker-imenu and gpicker-isearch. As well
+;; https://github.com/alk/supermegadoc/blob/master/supermegadoc.el
 
 ;;; Code
 
+(eval-when-compile
+  (require 'cl))
+
+(require 'imenu)
 (require 'ffap)
-(require 'cl)
 
 (defvar *gpicker-path* "gpicker")
 (defvar *gpicker-simple-path* nil)
@@ -87,9 +99,9 @@
                           (buffer-string)
                         (message "%s exited with status %d" (car call-process-args) status)
                         (save-excursion
-                          (set-buffer "*Messages*")
-                          (goto-char (point-max))
-                          (insert-file-contents *gpicker-errors-log*))
+                          (with-current-buffer "*Messages*"
+                            (goto-char (point-max))
+                            (insert-file-contents *gpicker-errors-log*)))
                         nil))
       (progn
         (gpicker-delete-file *gpicker-errors-log*)
@@ -103,9 +115,8 @@
       (gpicker-mb-pick dir *gpicker-project-type*)
     ;; gui mode
     (let ((gpicker-args (append *gpicker-extra-args*
-				(list "-t"
-				      (or *gpicker-project-type* "default")
-				      dir)))
+				(and *gpicker-project-type* (list "-t" *gpicker-project-type*))
+				(list dir)))
 	  (at-point (ffap-string-at-point)))
       (when (and at-point
 		 (> (string-bytes at-point) 0))
@@ -129,7 +140,7 @@
 (defun gpicker-set-project-type (type)
   "Sets type of current gpicker project"
   (interactive (list (completing-read "Choose gpicker project type: "
-                                      '("guess" "git" "hg"
+                                      '("guess" "script" "git" "hg"
                                         "bzr" "default" "mlocate")
                                       nil t nil nil "guess")))
   (setq *gpicker-project-type* type))
@@ -142,7 +153,7 @@
   (setq *gpicker-project-dir* (expand-file-name dir)))
 
 (defun gpicker-call-find-function (find-function original-file)
-  (let ((file (expand-file-name file *gpicker-project-dir*)))
+  (let ((file (expand-file-name original-file *gpicker-project-dir*)))
     (if (file-exists-p file)
         (let ((revert-without-query (list (regexp-quote (abbreviate-file-name file)))))
           (funcall find-function file))
@@ -173,34 +184,40 @@
 
 ;;; ido integration
 
-(defvar *gpicker-hook-ido* t
-  "*Use gpicker for filtering ido results")
+(defvar *gpicker-want-ido* nil
+  "If ido integration is needed")
 
-(defadvice ido-set-matches-1 (around gpicker-ido-set-matches-1 activate)
-  "Choose between the regular ido-set-matches-1 and gpicker-my-ido-match"
-  (if *gpicker-hook-ido*
-      (setq ad-return-value (gpicker-my-ido-match ido-text (ad-get-arg 0)))
-    ad-do-it))
+(when *gpicker-want-ido*
+  (defvar *gpicker-hook-ido* t
+    "Use gpicker for filtering ido results")
 
-(defun gpicker-ido-toggle ()
-  "Toggle gpicker-ido integration"
-  (interactive)
-  (setq *gpicker-hook-ido* (not *gpicker-hook-ido*)))
+  (defadvice ido-set-matches-1 (around gpicker-ido-set-matches-1 activate)
+    "Choose between the regular ido-set-matches-1 and gpicker-my-ido-match"
+    (if *gpicker-hook-ido*
+        (setq ad-return-value (gpicker-my-ido-match ido-text (ad-get-arg 0)))
+      ad-do-it))
 
-(defun gpicker-my-ido-match (str items)
-  (setq items (reverse items))
-  (with-temp-file *gpicker-buffers-list*
-    (let ((standard-output (current-buffer)))
-      (dolist (item items)
-        (princ item)
-        (princ "\0"))))
-  (let ((args (list "-n\\0" str)))
-    (when (or ido-rotate (string= str ""))
-      (push "-S" args)) ;; dont_sort
-    (let ((out (apply #'gpicker-grab-stdout
-                      (gpicker-get-simple-path)
-                      args)))
-      (split-string out "\0" t))))
+  (defun gpicker-ido-toggle ()
+    "Toggle gpicker-ido integration"
+    (interactive)
+    (setq *gpicker-hook-ido* (not *gpicker-hook-ido*)))
+
+  (defun gpicker-my-ido-match (str items)
+    (setq items (reverse items))
+    (with-temp-file *gpicker-buffers-list*
+      (let ((standard-output (current-buffer)))
+        (dolist (item items)
+          (princ item)
+          (princ "\0"))))
+    (let ((args (list "-n\\0" str)))
+      (when (or ido-rotate (string= str ""))
+        (push "-S" args)) ;; dont_sort
+      (let ((out (apply #'gpicker-grab-stdout
+                        (gpicker-get-simple-path)
+                        args)))
+        (split-string out "\0" t)))))
+
+;;; end of ido integration
 
 (defun gpicker-complete-list (list &optional init-filter)
   (with-temp-file *gpicker-buffers-list*
@@ -208,7 +225,7 @@
       (dolist (name list)
         (princ name)
         (princ "\0"))))
-  (unwind-protect (let ((rv (gpicker-grab-stdout *gpicker-path* "-l"
+  (unwind-protect (let ((rv (gpicker-grab-stdout *gpicker-path* "-l" "-d" "\01"
                                                  "--init-filter" (or init-filter (ffap-string-at-point))
                                                  "-")))
                     (and rv
@@ -226,21 +243,33 @@
   (interactive)
   (find-tag (car (gpicker-complete-list (alk-obarray-to-list (tags-completion-table))))))
 
-(defun gpicker-imenu ()
+(defun gpicker-flatten-imenu (imenu-ilist &optional prefix)
+  (let* ((prefix (or prefix ""))
+         (list-of-lists (mapcar (lambda (pair)
+                                  (let* ((snd (cdr pair))
+                                         (item (car pair))
+                                         (name (concat prefix item)))
+                                    (if (listp snd)
+                                        ;; if pair's cdr is list then it's sublist
+                                        (gpicker-flatten-imenu snd (concat name "/"))
+                                      ;; else it's marker
+                                      (list (cons name snd)))))
+                                imenu-ilist)))
+    (apply #'append list-of-lists)))
+
+(defun gpicker-imenu (&optional init-filter)
   (interactive)
-  (require 'imenu)
-  (let* ((imenu-alist (imenu--make-index-alist))
-         (imenu (apply #'append
-                       (mapcar (lambda (pair)
-                                 (let ((val (cdr pair)))
-                                  (if (listp val)
-                                      nil ;; (mapcar #'car val)
-                                    (cons (car pair) nil))))
-                               imenu-alist)))
-         (selected (car (gpicker-complete-list imenu))))
-    (when selected
-      (imenu-default-goto-function selected (cdr (assoc selected imenu-alist)))
-      (recenter-top-bottom))))
+  (let ((result t))
+    (while (eq result t)
+      (let* ((raw-imenu-alist (imenu--make-index-alist))
+             (imenu-alist (gpicker-flatten-imenu raw-imenu-alist))
+             (selected (car (gpicker-complete-list (mapcar #'car imenu-alist) init-filter))))
+        (setq result (assoc selected imenu-alist))
+        (when (equal result imenu--rescan-item)
+          (imenu--cleanup)
+          (setq result t))))
+    (when result
+      (imenu result))))
 
 (defun gpicker-isearch ()
   (interactive)
@@ -252,7 +281,8 @@
   (let ((rv (gpicker-grab-stdout *gpicker-path* "-IlP" "-d" "\\n" "-n" "\\n" "-")))
     (and (> (length rv) 0)
          (let ((line-num (1+ (string-to-number rv 10))))
-           (goto-line line-num)))))
+           (goto-char (point-min))
+           (forward-line (1- line-num))))))
 
 
 (provide 'gpicker)

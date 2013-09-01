@@ -46,21 +46,21 @@ void kill_child_pid(void)
 static
 int my_popen(char *string, GPid *child_pid)
 {
-        char *argv[] = {"/bin/sh", "-c", string, 0};
-        int fd;
-        gboolean ok = g_spawn_async_with_pipes(0, // work dir
-                                               argv,
-                                               0, //envp
-                                               (GSpawnFlags) 0, // flags
-                                               0, 0, //child setup & user data
-                                               child_pid,
-                                               0, // stdin
-                                               &fd, //stdout
-                                               0, //stderr
-                                               0);
-        if (!ok)
-                fd = -1;
-        return fd;
+	char *argv[] = {"/bin/sh", "-c", string, 0};
+	int fd;
+	gboolean ok = g_spawn_async_with_pipes(0, // work dir
+					       argv,
+					       0, //envp
+					       G_SPAWN_DO_NOT_REAP_CHILD, // flags
+					       0, 0, //child setup & user data
+					       child_pid,
+					       0, // stdin
+					       &fd, //stdout
+					       0, //stderr
+					       0);
+	if (!ok)
+		fd = -1;
+	return fd;
 }
 
 static
@@ -104,6 +104,17 @@ int check_parents(char* name)
 }
 
 static
+int detect_project_type_script(void)
+{
+        struct stat st;
+        int rv = stat(".gpicker-script", &st);
+        /* NOTE: I was considering checking if script is executable
+         * but decided that guess semantics shouldn't bother with
+         * it. It provides better error reporting. */
+        return (rv == 0 && S_ISREG(st.st_mode));
+}
+
+static
 void enter_project_dir(const char *project_dir)
 {
   int rv = chdir(project_dir);
@@ -114,7 +125,9 @@ void enter_project_dir(const char *project_dir)
   }
 
   if (!strcmp(project_type, "guess")) {
-    if (check_parents(".git"))
+    if (detect_project_type_script())
+      project_type = "script";
+    else if (check_parents(".git"))
       project_type = "git";
     else if (!disable_hg && check_parents(".hg"))
       project_type = "hg";
@@ -136,7 +149,8 @@ void project_files_init(const char *project_dir)
             strcmp(project_type, "hg") &&
             strcmp(project_type, "bzr") &&
             strcmp(project_type, "default") &&
-            strcmp(project_type, "mlocate")) {
+            strcmp(project_type, "mlocate") &&
+            strcmp(project_type, "script")) {
           fprintf(stderr, "Unknown project type specified: %s\n", project_type);
           exit(1);
         }
@@ -164,6 +178,8 @@ void project_files_init(const char *project_dir)
                 if (!find_command)
                         find_command = FIND_INVOCATION;
                 pipe_fd = my_popen(find_command, &child_pid);
+	} else if (!strcmp(project_type, "script")) {
+		pipe = my_popen("./.gpicker-script", &child_pid);
         } else if (!strcmp(project_type, "git"))
                 pipe_fd = my_popen("git ls-files --exclude-standard -c -o -z .", &child_pid);
         else if (!strcmp(project_type, "hg"))
@@ -192,10 +208,24 @@ void project_files_read(void)
         assert(pipe_fd >= 0);
 
         read_filenames(pipe_fd);
+        close(pipe_fd);
 
         if (child_pid) {
-                kill(child_pid, SIGINT);
-                child_pid = 0;
+		pid_t rv;
+		int child_status;
+		do {
+			rv = waitpid(child_pid, &child_status, 0);
+			if (rv < 0) {
+				if (errno == EINTR)
+					continue;
+				perror("waitpid");
+				exit(1);
+			}
+		} while (0);
+		child_pid = 0;
+		if (WIFEXITED(child_status) && (child_status = WEXITSTATUS(child_status)) != 0) {
+			fprintf(stderr, "child exited with bad status: %d\n", child_status);
+			exit(1);
+		}
         }
-        close(pipe_fd);
 }
