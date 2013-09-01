@@ -1,6 +1,7 @@
 ;;; gpicker-mb.el --- gpicker minibuffer integration for Emacs
 
 ;; Copyright (C) 2008 Aliaksey Kandratsenka
+;; Copyright (C) 2013 Stephane Zermatten
 
 ;; Author: Stephane Zermatten <szermatt@gmx.net>
 ;; Version: 1.0

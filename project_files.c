@@ -4,6 +4,7 @@
 
 #include <assert.h>
 #include <dirent.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <glib.h>
 #include <signal.h>
@@ -179,7 +180,7 @@ void project_files_init(const char *project_dir)
                         find_command = FIND_INVOCATION;
                 pipe_fd = my_popen(find_command, &child_pid);
 	} else if (!strcmp(project_type, "script")) {
-		pipe = my_popen("./.gpicker-script", &child_pid);
+		pipe_fd = my_popen("./.gpicker-script", &child_pid);
         } else if (!strcmp(project_type, "git"))
                 pipe_fd = my_popen("git ls-files --exclude-standard -c -o -z .", &child_pid);
         else if (!strcmp(project_type, "hg"))

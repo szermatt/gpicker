@@ -47,9 +47,6 @@ gpicker_simple_CPPFLAGS = -Ilib @EXTRA_CPPFLAGS@
 
 endif #WITH_GUI
 
-EXTRA_DIST = gpicker.el gpicker.vim IDEAS CodingStyle README.osx \
- Makefile.simple debian gpicker.1 gpicker-simple.1 m4/gnulib-cache.m4
-
 gpicker_daemon_SOURCES = daemon_main.c \
  project_files.c project_files.h \
  $(COMMON)
