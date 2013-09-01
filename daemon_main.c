@@ -87,19 +87,19 @@ void write_etx() {
 
 static
 void write_results(char *pattern, int maxcount) {
-        struct filename *filenames = (struct filename *)files_vector.buffer;
         struct filter_result *results;
         int i;
         int result_count;
 
         filter_files_sync(pattern);
         results = (struct filter_result *)filtered.buffer;
-        result_count = filtered.used;
-        if (result_count > maxcount)
-                result_count = maxcount;
+        result_count = filtered.used > maxcount ? maxcount : filtered.used;
         for (i = 0; i < result_count; i++) {
-                struct filename *filename = &filenames[results[i].index];
-                write_or_die(filename->p, strlen(filename->p) + 1);
+                int index = results[i].index;
+                if (index >=0 && index < files_vector.avail) {
+                        const char *filename = files[index].p;
+                        write_or_die(filename, strlen(filename) + 1);
+                }
         }
 }
 
@@ -137,7 +137,7 @@ int daemon_loop(void)
                                 max_results = atoi(line);
                                 line = colon_p + 1;
                         }
-                        if (max_results <= 0) {
+                        if (max_results <= 0 || max_results > FILTER_LIMIT) {
                                 fprintf(stderr,
                                         "Invalid result count in '?%s'.",
                                         stripws(line));
