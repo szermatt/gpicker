@@ -23,7 +23,8 @@ static gboolean disable_hg;
 
 GOptionEntry project_file_entries[] = {
   {"project-type", 't', 0, G_OPTION_ARG_STRING, &project_type,
-   "respect ignored files for given kind of VCS (default, git, bzr, hg, guess, mlocate)", 0},
+   "respect ignored files for given kind of VCS "
+   "(default, git, bzr, hg, guess, mlocate, script)", 0},
   {"disable-bzr", 0, 0, G_OPTION_ARG_NONE, &disable_bzr,
    "disable autodetection of Bazaar project type", 0},
   {"disable-hg", 0, 0, G_OPTION_ARG_NONE, &disable_hg,
