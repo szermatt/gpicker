@@ -161,6 +161,7 @@ int main(int argc, char **argv)
 {
         const char *project_dir;
         init_loading();
+        prepare_scorer();
         project_dir = parse_options(argc, argv);
         project_files_init(project_dir);
         project_files_read();
