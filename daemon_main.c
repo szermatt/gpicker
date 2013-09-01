@@ -71,7 +71,7 @@ char *read_daemon_command(char *buffer, int buflen, int *ignored) {
 
 static inline
 void write_or_die(const char *buf, size_t count) {
-        if (write(1, buf, count) <= 0) {
+        if (fwrite(buf, 1, count, stdout) < 0) {
                 perror("write error");
                 exit(1);
         }
@@ -82,6 +82,7 @@ void write_etx() {
         /* mark the end of a query. */
         const static char* end = "\0\0\n";
         write_or_die(end, 3);
+        fflush(stdout);
 }
 
 static
@@ -143,10 +144,6 @@ int daemon_loop(void)
                                 break;
                         }
                         write_results(stripws(line), max_results);
-                        break;
-                case '+':
-                        /* +:<query> get all results. */
-                        write_results(stripws(line + 1), FILTER_LIMIT);
                         break;
                 default:
                         fprintf(stderr, "Unknown query '%c'\n", *line);
