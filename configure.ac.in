@@ -4,6 +4,7 @@ AM_INIT_AUTOMAKE
 AC_CONFIG_FILES([Makefile lib/Makefile])
 AC_PROG_CC
 AM_PROG_CC_C_O
+AC_PROG_RANLIB
 gl_EARLY
 
 AC_ARG_ENABLE(timing, [AS_HELP_STRING(--enable-timing, Enable output of timing info on stderr)],
