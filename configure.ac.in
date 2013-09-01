@@ -24,11 +24,11 @@ WITH_GUI=yes
 PKG_CHECK_MODULES([gtk2], [gtk+-2.0 >= 2.8],, [WITH_GUI=no])
 PKG_CHECK_MODULES([glib2], [glib-2.0 >= 2.14],, [WITH_GUI=no])
 PKG_CHECK_MODULES([gthread], [gthread-2.0],, [WITH_GUI=no])
-AM_CONDITIONAL([WITH_GUI], [test $WITH_GUI = xyes])
+AM_CONDITIONAL([WITH_GUI], [test x$WITH_GUI = xyes])
 
 AC_SUBST(EXTRA_CPPFLAGS)
 
-if [[ "$WITH_GUI" = "1" ]]; then
+if test "x$WITH_GUI" = "xyes"; then
 AC_DEFINE([WITH_GUI], [1], [GUI build])
 uname_res=`uname -s`
 if test "x$uname_res" = "xDarwin"; then
@@ -50,7 +50,6 @@ AC_LINK_IFELSE([], [AC_MSG_RESULT([no])], [
 ])
 LIBS=$ac_func_search_save_LIBS
 CFLAGS=$ac_func_search_save_CFLAGS
-
 fi # WITH_GUI=1
 
 ac_func_search_save_LIBS=$LIBS
