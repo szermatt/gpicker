@@ -12,9 +12,10 @@ COMMON = \
   timing.h \
   inline_qsort.h 
 
-man_MANS = gpicker.1 gpicker-simple.1
+man_MANS = gpicker.1 gpicker-simple.1 gpicker-daemon.1
 EXTRA_DIST = gpicker.el gpicker.vim IDEAS CodingStyle README.osx \
- Makefile.simple debian gpicker.1 gpicker-simple.1 m4/gnulib-cache.m4 contrib/gpicker-script-example
+ Makefile.simple debian gpicker.1 gpicker-simple.1 gpicker-daemon.1 \
+ m4/gnulib-cache.m4 contrib/gpicker-script-example
 
 if WITH_GUI
 
@@ -38,7 +39,7 @@ gpicker-simple: gpicker
 
 else #WITH_GUI=no
 
-bin_PROGRAMS = gpicker-daemon gpicker-simple
+bin_PROGRAMS = gpicker-simple gpicker-daemon
 
 gpicker_simple_SOURCES = simple_main.c $(COMMON)
 gpicker_simple_LDADD = @glib2_LIBS@ lib/libgnu.a

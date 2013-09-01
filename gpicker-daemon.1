@@ -1,0 +1,116 @@
+.TH GPICKER-DAEMON 1 "September 1, 2013"
+.SH NAME
+gpicker-daemon \- daemon version of gpicker high-performance
+filename chooser
+.SH SYNOPSIS
+.B gpicker-daemon
+.RI [ options ]
+.RI directory-path
+.br
+.SH DESCRIPTION
+This manual page documents briefly the
+.B gpicker-daemon
+program.
+.PP
+.B gpicker-daemon
+acts as backend for an interactive frontend application to filter and
+sort project filenames incrementally via a pipe and simple protocol.
+In this setup, the frontend application acts as the UI. At this time,
+the only frontend application that supports gpicker-daemon is Emacs,
+through gpicker.md.el.
+.PP
+Each 
+.B gpicker-daemon
+process search files within one gpicker project,
+identified by the command-line parameter
+.I directory-path
+.PP
+.B gpicker
+has a concept of project type which allows it to skip files that are
+ignored by project's version control system. Default project type
+invokes find to gather list of files. You can change find command line
+via
+.B GPICKER_FIND
+environment variable.
+.PP
+One started an initialized, 
+.B gpicker-daemon
+reads queries from standard inputs and output matching filenames to
+standard output. See the section
+.B PROTOCOL
+for a description of the syntax.
+.br
+.SH OPTIONS
+This program follows the usual GNU command line syntax. A summary of options
+is included below.
+.TP
+.B \-h
+Show help options and quit
+.TP
+.B \-t, \-\-project\-type
+respect ignored files for given kind of VCS (default, git, bzr, hg,
+guess, script). mlocate project type is used for loading file list
+from mlocate database.
+
+Type
+.B script
+will use
+.B .gpicker-script
+script located in project dir to read all relevant filenames. Script
+must separate entries with zero character. It will be run with project
+directory as current directory and should normally output relative
+path. Not however that gpicker doesn't care if items output from
+script are files and do exist.
+
+Type
+.B guess
+will try to guess project type based on presence of directories and
+files (such as
+.B .gpicker-script
+or
+.B .git
+).
+.TP
+.B \-\-disable\-bzr
+disable autodetection of Bazaar project type
+.TP
+.B \-\-disable\-hg
+disable autodetection of Mercurial project type
+.br
+.br
+.SH PROTOCOL
+.PP
+Upon startup,
+.B gpicker-daemon
+reads the project file list and reads commands from stdin. 
+Each line found on stdin, delimited by a newline character
+is interpreted as one command. 
+.TP
+.B ?<number>:<query>\\\\n
+filters filenames by
+.I <query> 
+and returns up to
+.I <number>
+results matching this query. Matching results are printed to standard
+output separated by \\0
+\\0\\0 marks the end of the result list.
+.TP
+.B .\\\\n
+gracefully stops the daemon
+.SH LICENSE
+The gpicker is distributed under the GPLv3 license. See COPYING file
+that comes with it. On Debian systems,
+the complete text of the GNU General Public License
+can be found in /usr/share/common-licenses/GPL-3.
+.br
+.SH SEE ALSO
+gpicker(1)
+.PP
+The README file that comes with gpicker.
+.SH AUTHOR
+The gpicker was written by Aliaksey Kandratsenka
+.B <alk@tut.by>
+with useful input and patches from folks in Ruby department of Altoros
+Systems, Inc.
+.B http://www.altoros.com/ruby_on_rails.html
+.br
