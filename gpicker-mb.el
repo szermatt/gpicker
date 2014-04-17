@@ -69,9 +69,9 @@
 ;; async process.
 ;;
 
-;;; Code
+(require 'tq)
 
-(require 'iswitchb) ;; inherit faces from iswitchb
+;;; Code
 
 (defvar *gpicker-mb-path* nil)
 
@@ -89,6 +89,7 @@
     (define-key map [(control r)] 'gpicker-mb-prev-match)
     (define-key map [(right)] 'gpicker-mb-next-match)
     (define-key map [(left)] 'gpicker-mb-prev-match)
+    (define-key map [(return)] 'exit-minibuffer)
     (define-key map [(control m)] 'exit-minibuffer)
     (define-key map [(shift return)] 'gpicker-mb-open)
     (define-key map [(control x) ?4 (return)] 'gpicker-mb-open-other-window)
@@ -124,15 +125,25 @@ session is in progress.")
 This is an internal variable. It is set only while a gpicker
 session is in progress.")
 
-(defface gpicker-mb-single-match
-  '((t
-     (:inherit iswitchb-single-match)))
-  "Face for the single matching file name.")
-
-(defface gpicker-mb-current-match
-  '((t
-     (:inherit iswitchb-current-match)))
-  "Face for the current matching file name.")
+;; inherit faces from iswitchb or icomplete
+(if (or (> emacs-major-version 24)
+	(and (= emacs-major-version 24) (>= emacs-minor-version 4)))
+    (progn ;; emacs >= 24.4
+      (require 'icomplete)
+      (defface gpicker-mb-single-match
+	'((t (:inherit icomplete-first-match)))
+	"Face for the single matching file name.")
+      (defface gpicker-mb-current-match
+	'((t (:inherit icomplete-first-match)))
+	"Face for the current matching file name."))
+  (progn ;; emacs < 24.4
+    (require 'iswitchb) 
+    (defface gpicker-mb-single-match
+      '((t (:inherit iswitchb-single-match)))
+      "Face for the single matching file name.")
+    (defface gpicker-mb-current-match
+      '((t (:inherit iswitchb-current-match)))
+      "Face for the current matching file name.")))
 
 (defsubst gpicker-mb-update-matches (elem)
   "Call `gpicker-mb-chop' on `gpicker-mb-matches' with ELEM."
@@ -203,7 +214,11 @@ terminal or when `*gpicker-force-nogui*' is t."
 	      (gpicker-mb-last-search nil)
 	      (gpicker-mb-minibuf-depth (1+ (minibuffer-depth)))
 	      (gpicker-mb-project-dir project-dir)
-	      (minibuffer-local-completion-map gpicker-mb-map))
+	      (minibuffer-local-completion-map gpicker-mb-map)
+	      ;; disable icomplete and iswitchb, to be sure they
+	      ;; won't interfere.
+	      (iswitchb-mode nil)
+	      (icomplete-mode nil))
 	  (completing-read "gpick " '(("dummy" . 1)))
 	  (list (let ((selection (car gpicker-mb-matches)))
 		  (and selection (expand-file-name selection project-dir)))))
