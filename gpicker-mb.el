@@ -218,7 +218,8 @@ terminal or when `*gpicker-force-nogui*' is t."
 	      ;; disable icomplete and iswitchb, to be sure they
 	      ;; won't interfere.
 	      (iswitchb-mode nil)
-	      (icomplete-mode nil))
+	      (icomplete-mode nil)
+              (completing-read-function 'completing-read-default))
 	  (completing-read "gpick " '(("dummy" . 1)))
 	  (list (let ((selection (car gpicker-mb-matches)))
 		  (and selection (expand-file-name selection project-dir)))))
